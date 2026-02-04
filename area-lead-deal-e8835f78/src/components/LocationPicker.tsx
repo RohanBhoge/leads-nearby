@@ -6,7 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import MapPreview from './MapPreview';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAX0hUBgfK7FvWz6UTtaLzMGUEsKTcaKB4';
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 interface LocationPickerProps {
   latitude: number | null;

@@ -28,7 +28,7 @@ interface CreateLeadForm {
 // Gemini key (set in .env as VITE_GEMINI_API_KEY). If absent, we fall back to local parsing only.
 const geminiKey = import.meta.env.VITE_GEMINI_API_KEY;
 // MapTiler key used for geocoding (same as LocationPicker)
-const MAPTILER_KEY = 'vUJcqBljtTjPDAM96UaW';
+const MAPTILER_KEY = import.meta.env.VITE_MAPTILER_API_KEY;
 
 async function parseWhatsAppMessage(text: string): Promise<Partial<CreateLeadForm> | null> {
   try {

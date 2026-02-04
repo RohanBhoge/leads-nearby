@@ -7,7 +7,7 @@ interface MapWithRadiusProps {
   className?: string;
 }
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyAX0hUBgfK7FvWz6UTtaLzMGUEsKTcaKB4';
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 const MapWithRadius: React.FC<MapWithRadiusProps> = ({
   latitude,
