@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageToggle from '@/components/LanguageToggle';
 
+import logo from '@/assets/logo.png';
+
 const Index: React.FC = () => {
   const { user, loading } = useAuth();
   const { t } = useLanguage();
@@ -31,9 +33,7 @@ const Index: React.FC = () => {
       <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center">
-              <span className="text-xl font-extrabold text-primary-foreground">LN</span>
-            </div>
+            {/* <img src={logo} alt="Leads Nearby Logo" className="w-11 h-max-11 object-contain" /> */}
             <span className="text-xl font-bold text-foreground">
               Leads <span className="text-primary">Nearby</span>
             </span>

@@ -3,23 +3,22 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Database } from '@/integrations/supabase/types';
 
-// Define explicit type for service_type from Database definition or fallback to string
-type ServiceType = Database['public']['Enums']['service_type'] | string;
-
 interface Profile {
   id: string;
   user_name: string;
+  name?: string; // Alias for user_name for easier access
   phone: string | null;
   avatar_url: string | null;
   preferred_language: string;
   location_lat: number | null;
   location_long: number | null;
   service_radius_km: number;
-  service_type: ServiceType | null;
   is_subscribed: boolean;
   subscription_expires_at: string | null;
   category_id: string | null;
   sub_category_id: string | null;
+  credit_balance: number;
+  referral_code: string | null;
   role: 'admin' | 'user' | 'provider';
 }
 
@@ -28,7 +27,18 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, name: string, phone?: string, category_id?: string | null, sub_category_id?: string | null, role?: 'user' | 'provider') => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    name: string,
+    phone?: string,
+    category_id?: string | null,
+    sub_category_id?: string | null,
+    role?: 'user' | 'provider',
+    location_lat?: number | null,
+    location_long?: number | null,
+    service_radius_km?: number
+  ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>;
@@ -54,7 +64,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.error('Error fetching profile:', error);
       return null;
     }
-    return data as unknown as Profile;
+
+    // Map user_name to name for easier access in components
+    if (data) {
+      return {
+        ...(data as any),
+        name: (data as any).user_name
+      } as Profile;
+    }
+
+    return null;
   };
 
   const refreshProfile = async () => {
@@ -98,32 +117,70 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, name: string, phone?: string, category_id?: string | null, sub_category_id?: string | null, role: 'user' | 'provider' = 'user') => {
+  const signUp = async (
+    email: string,
+    password: string,
+    name: string,
+    phone?: string,
+    category_id?: string | null,
+    sub_category_id?: string | null,
+    role: 'user' | 'provider' = 'user',
+    location_lat?: number | null,
+    location_long?: number | null,
+    service_radius_km: number = 10,
+    referral_code?: string
+  ) => {
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('auth-handler', {
-        body: {
-          action: 'register',
-          email,
-          password,
-          name,
-          phone,
-          category_id,
-          sub_category_id,
-          role
+      // Use standard signUp instead of Edge Function for reliability
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+            phone,
+            category_id,
+            sub_category_id,
+            role,
+            location_lat,
+            location_long,
+            service_radius_km,
+            referral_code: referral_code || null // Pass to metadata
+          }
         }
       });
 
-      if (fnError) {
-        console.error('Edge Function Error Object:', fnError);
-        throw fnError;
+      if (signUpError) throw signUpError;
+
+      // Auto sign-in is handled by signUp if email confirmation is disabled or unnecessary
+      // But if we need to sign in explicitly (e.g. if signUp returned a session):
+      if (data.session) {
+        // Session exists, we are logged in
+      } else if (data.user && !data.session) {
+        // User created but validation required
+        // We can't auto-login.
+        // But the UI handles this by showing "check email" usually?
+        // Our Auth.tsx handles "Account created successfully" then navigates.
+        // If email confirmation is required, the user won't be able to login immediately.
       }
 
-      if (data && data.error) {
-        throw new Error(data.error);
+      // If signUp successful, we might need to handle profile update explicitly if trigger failed? 
+      // No, trigger should handle it. 
+      // If session is missing (email confirm needed), we can't update profile via RLS anyway.
+
+      // If we have a session, we are good.
+      if (data.session) {
+        // Logged in
       }
 
-      const { error: signInError } = await signIn(email, password);
-      if (signInError) throw signInError;
+      // If location was provided, update profile immediately after signup
+      if (location_lat !== null && location_lat !== undefined && location_long !== null && location_long !== undefined) {
+        await updateProfile({
+          location_lat,
+          location_long,
+          service_radius_km
+        });
+      }
 
       return { error: null };
 
@@ -154,12 +211,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProfile(null);
   };
 
-  const updateProfile = async (updates: Partial<Profile>) => {
+  const updateProfile = async (updates: {
+    name?: string;
+    phone?: string;
+    location_lat?: number | null;
+    location_long?: number | null;
+    service_radius_km?: number;
+    category_id?: string | null;
+    sub_category_id?: string | null;
+  }) => {
     if (!user) return { error: new Error('Not authenticated') };
 
     const { error } = await supabase
       .from('profiles')
-      .update(updates)
+      .update({
+        user_name: updates.name,
+        ...updates,
+      })
       .eq('id', user.id);
 
     if (!error) {

@@ -27,7 +27,7 @@ const AdminDashboard: React.FC = () => {
       // Fetch leads
       const { data: leadsData, error: leadsError } = await supabase
         .from('leads')
-        .select('*, profiles!leads_created_by_user_id_fkey(name, phone)');
+        .select('*, profiles!leads_created_by_fkey(name, phone)');
 
       if (leadsError) throw leadsError;
 

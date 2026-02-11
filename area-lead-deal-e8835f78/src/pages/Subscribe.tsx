@@ -108,7 +108,15 @@ const Subscribe: React.FC = () => {
         body: JSON.stringify({ coupon_code: couponCode.trim().toUpperCase() })
       });
 
-      const data = await response.json();
+      // Handle raw text response first to avoid JSON parse errors
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        console.error('Failed to parse response:', responseText);
+        throw new Error(`Server error: ${response.status} ${response.statusText}`);
+      }
 
       if (!response.ok) {
         throw new Error(data.error || 'Failed to apply coupon');
@@ -144,6 +152,8 @@ const Subscribe: React.FC = () => {
     }
   };
 
+  const PLAN_PRICE = 99;
+
   const handleSubscribe = async () => {
     const razorpayReady = typeof window.Razorpay !== 'undefined';
     if (!user || (!razorpayLoaded && !razorpayReady)) {
@@ -159,148 +169,111 @@ const Subscribe: React.FC = () => {
 
     try {
       const key = import.meta.env.VITE_RAZORPAY_KEY_ID;
-      if (!key) {
-        throw new Error('Razorpay key not configured');
+      if (!key) throw new Error('Razorpay key not configured');
+
+      const credits = profile?.credit_balance || 0;
+      let payableAmount = PLAN_PRICE;
+      let creditsToDeduct = 0;
+
+      // Logic: Use credits to reduce price
+      if (credits > 0) {
+        if (credits >= PLAN_PRICE) {
+          payableAmount = 0;
+          creditsToDeduct = PLAN_PRICE;
+        } else {
+          payableAmount = PLAN_PRICE - credits;
+          creditsToDeduct = credits;
+        }
       }
 
-      // Call edge function to create a new subscription dynamically
-      // Get the access token using supabase.auth.getSession() (async)
-      // Get the access token using supabase.auth.getSession() (async)
+      console.log(`Plan: ${PLAN_PRICE}, Credits: ${credits}, Payable: ${payableAmount}, Deduct: ${creditsToDeduct}`);
+
+      // CASE 1: Full Payment via Credits
+      if (payableAmount === 0) {
+        // @ts-ignore
+        const { data, error } = await supabase.rpc('purchase_subscription_via_credits', {
+          p_user_id: user.id,
+          p_cost: creditsToDeduct,
+          p_duration_days: 30
+        });
+
+        if (error) throw error;
+        // RPC returns JSONB, check success field
+        if (!data || !data.success) throw new Error(data?.error || 'Failed to purchase with credits');
+
+        toast({
+          title: '🎉 Subscription Activated!',
+          description: `Paid fully using ${creditsToDeduct} credits.`,
+        });
+        await refreshProfile();
+        setTimeout(() => navigate('/get-leads'), 1500);
+        return;
+      }
+
+      // CASE 2: Partial Payment (Razorpay Order) or Full Payment (Razorpay One-Time)
+      // We use the Order flow for everything now to support dynamic pricing (₹99) without needing new Plan IDs.
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
-
-      console.log('Subscribing - Access Token:', accessToken ? 'Present' : 'Missing');
-      if (!accessToken) console.error('No access token found in session');
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/create-razorpay-subscription`, {
+      console.log('Initiating Payment via Razorpay Order...');
+
+      // 1. Create Order
+      const orderResponse = await fetch(`${supabaseUrl}/functions/v1/razorpay-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${anonKey}`,
-          'X-User-Token': accessToken || ""
-        }
+        },
+        body: JSON.stringify({ amount: payableAmount, currency: "INR" })
       });
 
-      const subscriptionData = await response.json();
+      const orderData = await orderResponse.json();
+      if (!orderResponse.ok) throw new Error(orderData.error || 'Failed to create order');
 
-      if (!response.ok) {
-        throw new Error(subscriptionData.error || 'Failed to create subscription');
-      }
-
-      console.log('Subscription created:', subscriptionData);
-
-      // Configure Razorpay checkout
+      // 2. Open Razorpay
       const options: any = {
-        key: subscriptionData.key_id || key,
+        key: key,
+        amount: orderData.amount,
+        currency: orderData.currency,
         name: 'LEADX Premium',
-        description: '₹499/month - Auto-renews every 30 days',
+        description: creditsToDeduct > 0 ? `Partial Payment (Credits: ${creditsToDeduct})` : 'Premium Subscription',
+        order_id: orderData.id,
         prefill: {
           name: profile?.name ?? 'User',
-          email: user.email || 'user@example.com',
-          contact: profile?.phone ?? '9999999999',
+          email: user.email,
+          contact: profile?.phone
         },
-        notes: {
-          user_id: user.id,
-        },
-        theme: {
-          color: '#0f172a',
-        },
-        modal: {
-          ondismiss: () => {
-            setLoading(false);
-            toast({
-              title: 'Payment Cancelled',
-              description: 'You cancelled the payment. Try again when ready.',
-            });
-          },
-        },
+        theme: { color: '#0f172a' },
         handler: async (response: any) => {
           try {
-            console.log('Payment successful:', response);
-
-            if (!user?.id) {
-              throw new Error('User ID not found');
-            }
-
-            // Verify payment on server
-            const { error: verifyError } = await supabase.functions.invoke('verify-razorpay-payment', {
-              body: {
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_subscription_id: response.razorpay_subscription_id,
-                razorpay_signature: response.razorpay_signature,
-              },
+            // 3. Complete Payment on Backend
+            // @ts-ignore
+            const { data: completeData, error: completeError } = await supabase.rpc('complete_partial_payment', {
+              p_user_id: user.id,
+              p_credits_deducted: creditsToDeduct,
+              p_payment_amount: payableAmount,
+              p_payment_id: response.razorpay_payment_id,
+              p_order_id: response.razorpay_order_id
             });
 
-            if (verifyError) {
-              console.error('Verification error:', verifyError);
-            }
+            if (completeError) throw completeError;
+            if (!completeData.success) throw new Error(completeData.error || 'Failed to complete payment');
 
-            // Manually activate subscription in DB
-            const expiryDate = new Date();
-            expiryDate.setDate(expiryDate.getDate() + 30);
-
-            const { error: updateError } = await supabase
-              .from('profiles')
-              .update({
-                is_subscribed: true,
-                subscription_expires_at: expiryDate.toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', user.id);
-
-            if (updateError) {
-              console.error('Subscription update failed:', updateError);
-              throw new Error(`Failed to update subscription: ${updateError.message}`);
-            }
-
+            toast({ title: '🎉 Subscription Activated!', description: 'Payment successful.' });
             await refreshProfile();
+            setTimeout(() => navigate('/get-leads'), 1500);
 
-            toast({
-              title: '🎉 Subscription Activated!',
-              description: 'Your premium subscription is now active for 30 days with autopay enabled.',
-            });
-
-            // Refresh payment history
-            const { data } = await supabase
-              .from('payments')
-              .select('*')
-              .eq('user_id', user.id)
-              .order('created_at', { ascending: false })
-              .limit(5);
-
-            setPaymentHistory(data || []);
-
-            setTimeout(() => {
-              navigate('/get-leads');
-            }, 1000);
-          } catch (error) {
-            console.error('Payment handler error:', error);
-            toast({
-              variant: 'destructive',
-              title: 'Activation Error',
-              description: error instanceof Error ? error.message : 'Failed to activate subscription',
-            });
-          } finally {
-            setLoading(false);
+          } catch (err: any) {
+            console.error('Verification failed:', err);
+            toast({ variant: 'destructive', title: 'Error', description: err.message });
           }
-        },
+        }
       };
 
-      // Add subscription_id for autopay subscription
-      if (subscriptionData.type === 'subscription') {
-        options.subscription_id = subscriptionData.subscription_id;
-      } else {
-        // Fallback to order-based payment
-        options.order_id = subscriptionData.order_id;
-        options.amount = subscriptionData.amount;
-        options.currency = subscriptionData.currency;
-      }
-
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
+      const rzp = new window.Razorpay(options);
+      rzp.open();
 
     } catch (error) {
       console.error('Payment error:', error);
@@ -319,6 +292,7 @@ const Subscribe: React.FC = () => {
 
     // Fetch payment history
     const fetchPayments = async () => {
+      // @ts-ignore
       const { data } = await supabase
         .from('payments')
         .select('*')
@@ -372,13 +346,14 @@ const Subscribe: React.FC = () => {
         {!profile?.is_subscribed && (
           <div className="bg-gradient-to-br from-secondary/20 to-primary/20 rounded-2xl p-6 border border-secondary/30 animate-fade-in">
             <div className="flex items-center gap-3 mb-4">
-              <Shield className="text-secondary" size={24} />
-              <h3 className="text-lg font-bold text-foreground">Premium Plan</h3>
-            </div>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
+                  Premium Plan
+                </h2>
+                <p className="text-xl font-bold mt-2">₹99 <span className="text-sm font-normal text-muted-foreground">/ month</span></p>
+              </div>
 
-            <div className="flex items-baseline gap-1 mb-6">
-              <span className="text-4xl font-extrabold text-foreground">₹499</span>
-              <span className="text-muted-foreground">{t('perMonth')}</span>
+              <div className="bg-card rounded-xl p-6 border border-border space-y-4 mb-8"></div>
             </div>
 
             <ul className="space-y-3 mb-6">
@@ -490,20 +465,12 @@ const Subscribe: React.FC = () => {
             <h3 className="font-semibold text-foreground mb-4">Payment History</h3>
             <div className="space-y-3">
               {paymentHistory.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div key={payment.id} className="flex justify-between border-b border-border pb-2 last:border-0 last:pb-0">
                   <div>
-                    <p className="text-sm font-medium text-foreground">
-                      ₹{(payment.amount / 100).toFixed(0)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(payment.created_at).toLocaleDateString()}
-                    </p>
+                    <p className="font-medium text-foreground">₹{payment.amount}</p>
+                    <p className="text-xs text-muted-foreground">{new Date(payment.created_at).toLocaleDateString()}</p>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded-full ${payment.status === 'completed'
-                    ? 'bg-primary/20 text-primary'
-                    : payment.status === 'pending'
-                      ? 'bg-secondary/20 text-secondary'
-                      : 'bg-destructive/20 text-destructive'
+                  <span className={`px-2 py-1 rounded text-xs ${payment.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                     }`}>
                     {payment.status}
                   </span>
@@ -511,6 +478,52 @@ const Subscribe: React.FC = () => {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Credit Summary UI */}
+        {!profile?.is_subscribed && (profile?.credit_balance || 0) > 0 && (
+          <div className="bg-primary/5 rounded-xl p-4 border border-primary/20 space-y-2 mb-4">
+            <div className="flex justify-between text-sm">
+              <span>Plan Price</span>
+              <span>₹{PLAN_PRICE}</span>
+            </div>
+            <div className="flex justify-between text-sm text-green-600 font-medium">
+              <span>Credits applied</span>
+              <span>- ₹{Math.min(profile?.credit_balance || 0, PLAN_PRICE)}</span>
+            </div>
+            <div className="border-t border-border/50 pt-2 flex justify-between font-bold text-lg">
+              <span>To Pay</span>
+              <span>₹{Math.max(0, PLAN_PRICE - (profile?.credit_balance || 0))}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Note: Using credits will make this a one-time 30-day plan instead of auto-renewing.
+            </p>
+          </div>
+        )}
+
+        {/* Subscribe Button */}
+        {!profile?.is_subscribed ? (
+          <Button
+            onClick={handleSubscribe}
+            disabled={loading}
+            className="w-full h-12 text-lg font-bold bg-gradient-to-r from-primary to-purple-600 hover:opacity-90 transition-all rounded-xl shadow-lg shadow-primary/25"
+          >
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />
+            ) : (
+              <CreditCard className="w-5 h-5 mr-2" />
+            )}
+            {(profile?.credit_balance || 0) >= PLAN_PRICE ? 'Pay with Credits' : `Pay ₹${Math.max(0, PLAN_PRICE - (profile?.credit_balance || 0))}`}
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSubscribe}
+            variant="outline"
+            className="w-full h-12"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Renew Subscription
+          </Button>
         )}
 
         {/* Already Subscribed Message */}

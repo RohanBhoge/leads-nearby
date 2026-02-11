@@ -28,8 +28,8 @@ export interface LeadWithDistance {
   created_at: string;
   customer_name: string;
   customer_phone: string;
-  claimed_by_user_id: string | null;
-  created_by_user_id: string;
+  claimed_by: string | null;
+  created_by: string;
   rating?: number;
   distance?: number;
   search_score?: number;
@@ -50,9 +50,9 @@ export function calculateDistance(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }

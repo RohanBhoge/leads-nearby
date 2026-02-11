@@ -195,7 +195,7 @@ export const bulkAssignLeads = async (
     const { error } = await supabase
       .from('leads')
       .update({
-        claimed_by_user_id: providerId,
+        claimed_by: providerId,
         status: 'claimed',
         claimed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

@@ -350,7 +350,7 @@ const AdminCreateLead: React.FC<AdminCreateLeadProps> = ({ onLeadCreated }) => {
         location_long: parseFloat(form.locationLong),
         notes: `${form.notes || ''}${form.screenshotData ? `\n[Screenshot: ${form.screenshotName}]` : ''}`.trim(),
         lead_generator_phone: form.leadGeneratorPhone,
-        created_by_user_id: user.id,
+        created_by: user.id,
         status: 'open' as const,
       });
       if (error) throw error;

@@ -8,8 +8,9 @@ import { formatDistanceToNow } from 'date-fns';
 interface LeadCardProps {
   lead: {
     id: string;
-    service_type: string;
+    categories: { name: string } | null;
     location_address: string | null;
+    address?: string | null;
     customer_name: string | null;
     customer_phone: string;
     status: string;
@@ -33,14 +34,16 @@ const LeadCard: React.FC<LeadCardProps> = ({
   const { t } = useLanguage();
 
   const maskedPhone = isSubscribed
-    ? lead.customer_phone
-    : lead.customer_phone.slice(0, 6) + '*****';
+    ? (lead.customer_phone || 'N/A')
+    : (lead.customer_phone ? lead.customer_phone.slice(0, 6) + '*****' : 'N/A');
+
+  const addressToDisplay = lead.address || lead.location_address;
 
   const displayAddress = isSubscribed
-    ? lead.location_address
-    : lead.location_address?.split(',')[0] + '...';
+    ? addressToDisplay
+    : addressToDisplay?.split(',')[0] + '...';
 
-  const serviceLabel = t(getServiceLabel(lead.service_type));
+  const serviceLabel = lead.categories?.name || 'Service';
 
   return (
     <div className="bg-card rounded-2xl border border-border shadow-md p-4 animate-scale-in">

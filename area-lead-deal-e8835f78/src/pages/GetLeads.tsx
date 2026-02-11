@@ -21,19 +21,24 @@ import {
 
 interface Lead {
   id: string;
-  service_type: string;
+  categories: { name: string } | null;
+  sub_categories: { name: string } | null;
   location_lat: number;
   location_long: number;
   location_address: string | null;
+  address?: string | null;
   customer_name: string | null;
   customer_phone: string;
   status: string;
   created_at: string;
+  created_by: string;
   distance?: number;
 }
 
-interface Filters {
-  serviceType?: string;
+interface LeadFilters {
+  search: string;
+  serviceType: string;
+  distance: number;
   minDistance?: number;
   maxDistance?: number;
   dateFrom?: string;
@@ -44,15 +49,20 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const R = 6371; // Earth's radius in km
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
 const GetLeads: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { t } = useLanguage();
+  const { toast } = useToast();
+
   const [leads, setLeads] = useState<Lead[]>([]);
   const [filteredLeads, setFilteredLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,54 +70,68 @@ const GetLeads: React.FC = () => {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showSubscribeModal, setShowSubscribeModal] = useState(false);
   const [acceptingLead, setAcceptingLead] = useState(false);
-  const [filters, setFilters] = useState<Filters>({});
-  const notifiedLeadIdsRef = useRef<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  const { user, profile } = useAuth();
-  const { t } = useLanguage();
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [filters, setFilters] = useState<LeadFilters>({
+    search: '',
+    serviceType: 'all',
+    distance: 50,
+  });
+
+  const notifiedLeadIdsRef = useRef<Set<string>>(new Set());
 
   const fetchLeads = useCallback(async () => {
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('status', 'open')
-      .neq('created_by_user_id', user.id)
-      .order('created_at', { ascending: false });
+    setLoading(true);
 
-    if (error) {
-      console.error('Error fetching leads:', error);
-      return;
-    }
+    try {
+      const userLat = profile?.location_lat || 0;
+      const userLong = profile?.location_long || 0;
+      const serviceRadius = profile?.service_radius_km || 50;
 
-    // Calculate distances if user has location
-    let leadsWithDistance: Lead[] = (data || []).map((lead) => ({
-      ...lead,
-      status: lead.status || 'open',
-    }));
-    
-    if (profile?.location_lat && profile?.location_long) {
-      leadsWithDistance = leadsWithDistance.map((lead) => ({
+      // Fetch open leads
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*, categories(name), sub_categories(name)')
+        .eq('status', 'open')
+        .neq('created_by', user.id) // Don't show own leads
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      let leadsWithDistance: Lead[] = (data || []).map((lead: any) => ({
         ...lead,
-        distance: calculateDistance(
-          profile.location_lat!,
-          profile.location_long!,
-          lead.location_lat,
-          lead.location_long
-        ),
-      }));
+        status: lead.status || 'open',
+      })) as Lead[];
 
-      // Filter by radius and sort by distance
-      leadsWithDistance = leadsWithDistance
-        .filter((lead) => (lead.distance || 0) <= (profile.service_radius_km || 50))
-        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      if (userLat && userLong) {
+        leadsWithDistance = leadsWithDistance.map((lead) => ({
+          ...lead,
+          distance: lead.location_lat && lead.location_long
+            ? calculateDistance(userLat, userLong, lead.location_lat, lead.location_long)
+            : undefined
+        }));
+
+        // Filter by radius and sort by distance
+        leadsWithDistance = leadsWithDistance
+          .filter((lead) => (lead.distance || 0) <= serviceRadius)
+          .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      }
+
+      setLeads(leadsWithDistance);
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      toast({
+        variant: 'destructive',
+        title: t('error'),
+        description: 'Failed to fetch leads',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setLeads(leadsWithDistance);
-  }, [user, profile]);
+  }, [user, profile, t, toast]);
 
   useEffect(() => {
     const loadLeads = async () => {
@@ -123,7 +147,11 @@ const GetLeads: React.FC = () => {
     let filtered = [...leads];
 
     if (filters.serviceType) {
-      filtered = filtered.filter((lead) => lead.service_type === filters.serviceType);
+      filtered = filtered.filter((lead) =>
+        lead.categories?.name?.toLowerCase() === filters.serviceType?.toLowerCase() ||
+        // Fallback for hardcoded constants matching
+        lead.categories?.name?.toLowerCase().replace(/ /g, '_') === filters.serviceType?.toLowerCase()
+      );
     }
 
     if (filters.minDistance !== undefined) {
@@ -147,7 +175,7 @@ const GetLeads: React.FC = () => {
     setFilteredLeads(filtered);
   }, [leads, filters]);
 
-  const activeFiltersCount = Object.keys(filters).filter(key => filters[key as keyof Filters] !== undefined).length;
+  const activeFiltersCount = Object.keys(filters).filter(key => filters[key as keyof LeadFilters] !== undefined && filters[key as keyof LeadFilters] !== '').length;
 
   // Poll every minute to ensure users get notified about available leads nearby
   useEffect(() => {
@@ -158,9 +186,9 @@ const GetLeads: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('leads')
-          .select('id, service_type, location_lat, location_long, created_by_user_id')
+          .select('id, categories(name), sub_categories(name), location_lat, location_long, created_by')
           .eq('status', 'open')
-          .neq('created_by_user_id', user!.id);
+          .neq('created_by', user!.id);
 
         if (error || !data) return;
 
@@ -177,10 +205,11 @@ const GetLeads: React.FC = () => {
           );
 
           if (distanceKm <= radius && !notifiedLeadIdsRef.current.has(lead.id)) {
+            const serviceName = lead.categories?.name || 'Service';
             await createNotification(user!.id, {
               type: 'new_lead',
               title: 'New lead near you',
-              body: `${lead.service_type.replace(/_/g, ' ')} available ${distanceKm.toFixed(1)} km away`,
+              body: `${serviceName} available ${distanceKm.toFixed(1)} km away`,
               data: { leadId: lead.id, lead_id: lead.id },
             });
 
@@ -188,7 +217,7 @@ const GetLeads: React.FC = () => {
 
             showBrowserNotification(
               'New lead near you',
-              `${lead.service_type.replace(/_/g, ' ')} is available`,
+              `${serviceName} available ${distanceKm.toFixed(1)} km away`,
               {
                 leadId: lead.id,
                 url: `/lead/${lead.id}`,
@@ -212,62 +241,69 @@ const GetLeads: React.FC = () => {
     // Request browser notification permission once
     requestBrowserNotificationPermission();
 
+    if (!user) return;
+
+    // Real-time updates for new leads
     const channel = supabase
-      .channel('leads-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'leads',
-        },
-        async (payload) => {
-          // Always refresh list
+      .channel('public:leads')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'leads'
+      }, async (payload) => {
+        // If a lead is claimed by someone else, remove it from the list
+        if (payload.eventType === 'UPDATE' && payload.new.status === 'claimed') {
+          setLeads(current => current.filter(lead => lead.id !== payload.new.id));
+        }
+        // If a new lead is created, refresh the list
+        else if (payload.eventType === 'INSERT') {
           fetchLeads();
 
-          // On new lead insert, notify if within radius and not created by me
-          if (payload.eventType === 'INSERT' && payload.new) {
-            const newLead = payload.new as Lead & { created_by_user_id?: string };
-            const myId = user?.id;
+          const newLead = payload.new as any; // Cast safely or use proper type if available
+          if (!newLead || !profile?.location_lat || !profile?.location_long) return;
 
-            // Skip if I created it or no profile location
-            if (!myId || newLead.created_by_user_id === myId) return;
-            if (!profile?.location_lat || !profile?.location_long) return;
+          const distanceKm = calculateDistance(
+            profile.location_lat,
+            profile.location_long,
+            newLead.location_lat,
+            newLead.location_long
+          );
 
-            const distanceKm = calculateDistance(
-              profile.location_lat!,
-              profile.location_long!,
-              newLead.location_lat,
-              newLead.location_long
-            );
+          const radius = profile.service_radius_km || 50;
+          if (distanceKm <= radius) {
+            // Fetch category name since it's not in the payload
+            const { data: categoryData } = await supabase
+              .from('categories')
+              .select('name')
+              .eq('id', newLead.category_id)
+              .single();
 
-            const radius = profile.service_radius_km || 50;
-            if (distanceKm <= radius) {
-              // Persist notification entry
-              await createNotification(myId, {
-                type: 'new_lead',
-                title: 'New lead near you',
-                body: `${newLead.service_type.replace(/_/g, ' ')} available ${distanceKm.toFixed(1)} km away`,
-                data: { leadId: newLead.id, lead_id: newLead.id },
-              });
+            const serviceName = categoryData?.name || 'Service';
 
-              notifiedLeadIdsRef.current.add(newLead.id);
+            // Persist notification entry
+            await createNotification(user.id, {
+              type: 'new_lead',
+              title: 'New lead near you',
+              body: `${serviceName} available ${distanceKm.toFixed(1)} km away`,
+              data: { leadId: newLead.id, lead_id: newLead.id },
+            });
 
-              // Browser push notification
-              showBrowserNotification('New lead near you', `${newLead.service_type.replace(/_/g, ' ')} is available`, {
-                leadId: newLead.id,
-                url: `/lead/${newLead.id}`,
-              });
-            }
+            notifiedLeadIdsRef.current.add(newLead.id);
+
+            // Browser push notification
+            showBrowserNotification('New lead near you', `${serviceName} available ${distanceKm.toFixed(1)} km away`, {
+              leadId: newLead.id,
+              url: `/lead/${newLead.id}`,
+            });
           }
         }
-      )
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [fetchLeads]);
+  }, [fetchLeads, profile, user]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -295,8 +331,8 @@ const GetLeads: React.FC = () => {
     const { data, error, count } = await supabase
       .from('leads')
       .update({
-        status: 'claimed',
-        claimed_by_user_id: user?.id,
+        status: 'claimed' as any,
+        claimed_by: user?.id,
         claimed_at: new Date().toISOString(),
       })
       .eq('id', lead.id)
@@ -326,8 +362,8 @@ const GetLeads: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <Header 
-        title={t('getLeads')} 
+      <Header
+        title={t('getLeads')}
         showBack
         rightElement={
           <Button
@@ -344,7 +380,12 @@ const GetLeads: React.FC = () => {
       <main className="px-4 py-6 max-w-md mx-auto">
         {/* Filter Button */}
         <div className="mb-6">
-          <LeadFilter onFiltersChange={setFilters} activeFiltersCount={activeFiltersCount} />
+          <LeadFilter
+            onFiltersChange={(newFilters: Partial<LeadFilters>) => {
+              setFilters(prev => ({ ...prev, ...newFilters }));
+            }}
+            activeFiltersCount={activeFiltersCount}
+          />
         </div>
 
         {/* Location Reminder */}
@@ -386,7 +427,7 @@ const GetLeads: React.FC = () => {
             <p className="text-sm text-muted-foreground">
               {filteredLeads.length} {filteredLeads.length === 1 ? 'lead' : 'leads'} found
             </p>
-            
+
             {filteredLeads.map((lead, index) => (
               <div
                 key={lead.id}
@@ -415,7 +456,7 @@ const GetLeads: React.FC = () => {
               Full lead details
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedLead && (
             <div className="space-y-4 py-4">
               <div className="flex items-start gap-3">
@@ -482,11 +523,11 @@ const GetLeads: React.FC = () => {
               {t('subscribeToView')}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-6 text-center">
             <div className="text-4xl font-bold text-foreground">₹500</div>
             <div className="text-muted-foreground">{t('perMonth')}</div>
-            
+
             <ul className="mt-6 space-y-3 text-left">
               <li className="flex items-center gap-3 text-sm">
                 <div className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center">✓</div>

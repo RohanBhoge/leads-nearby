@@ -32,10 +32,11 @@ import {
 interface Lead {
   id: string;
   lead_code: string | null;
-  service_type: string;
+  categories: { name: string } | null;
   location_lat: number;
   location_long: number;
   location_address: string | null;
+  address?: string | null; // Add optional address to satisfy types if needed
   customer_name: string | null;
   customer_phone: string;
   lead_generator_phone: string | null;
@@ -45,8 +46,8 @@ interface Lead {
   notes: string | null;
   special_instructions: string | null;
   proof_url: string | null;
-  created_by_user_id: string;
-  claimed_by_user_id: string | null;
+  created_by: string;
+  claimed_by: string | null;
 }
 
 import { getServiceLabel } from '@/constants/serviceTypes';
@@ -85,7 +86,7 @@ const LeadDetails: React.FC = () => {
 
     const { data, error } = await supabase
       .from('leads')
-      .select('*')
+      .select('*, categories(name)')
       .eq('id', id)
       .maybeSingle();
 
@@ -99,47 +100,47 @@ const LeadDetails: React.FC = () => {
       return;
     }
 
-    setLead(data);
+    setLead(data as unknown as Lead);
 
     // Fetch generator profile for phone
-    if (data.created_by_user_id) {
+    if (data.created_by) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('phone')
-        .eq('id', data.created_by_user_id)
+        .eq('id', data.created_by)
         .maybeSingle();
 
-      if (profile?.phone) {
-        setGeneratorPhone(profile.phone);
+      if ((profile as any)?.phone) {
+        setGeneratorPhone((profile as any).phone);
       }
     }
 
     // Fetch claimer info and ratings if lead is claimed/completed
-    if (data.claimed_by_user_id) {
+    if (data.claimed_by) {
       const { data: claimerProfile } = await supabase
         .from('profiles')
         .select('name')
-        .eq('id', data.claimed_by_user_id)
+        .eq('id', data.claimed_by)
         .maybeSingle();
 
-      if (claimerProfile?.name) {
-        setClaimerName(claimerProfile.name);
+      if ((claimerProfile as any)?.name) {
+        setClaimerName((claimerProfile as any).name);
       }
 
       // Fetch claimer's average rating
-      const { data: ratings } = await supabase
+      const { data: ratings } = await (supabase as any)
         .from('ratings')
         .select('rating')
-        .eq('rated_user_id', data.claimed_by_user_id);
+        .eq('rated_user_id', data.claimed_by);
 
       if (ratings && ratings.length > 0) {
-        const avg = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+        const avg = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
         setClaimerRating({ average: avg, count: ratings.length });
       }
 
       // Check if already rated this lead
       if (user) {
-        const { data: existingRating } = await supabase
+        const { data: existingRating } = await (supabase as any)
           .from('ratings')
           .select('id')
           .eq('lead_id', id)
@@ -149,7 +150,7 @@ const LeadDetails: React.FC = () => {
         setHasRated(!!existingRating);
 
         // Auto-show rating modal for generator when lead is completed and not yet rated
-        if (data.status === 'completed' && data.created_by_user_id === user.id && !existingRating) {
+        if (data.status === 'completed' && data.created_by === user.id && !existingRating) {
           setAutoShowRating(true);
         }
       }
@@ -158,8 +159,8 @@ const LeadDetails: React.FC = () => {
     setLoading(false);
   };
 
-  const isGenerator = lead?.created_by_user_id === user?.id;
-  const isClaimer = lead?.claimed_by_user_id === user?.id;
+  const isGenerator = lead?.created_by === user?.id;
+  const isClaimer = lead?.claimed_by === user?.id;
   const daysRemaining = getDaysUntilExpiry(lead?.claimed_at || null);
   const aboutToExpire = isLeadAboutToExpire(lead?.claimed_at || null);
 
@@ -181,17 +182,17 @@ const LeadDetails: React.FC = () => {
       });
     } else {
       // Notify the appropriate party
-      if (isClaimer && lead.created_by_user_id) {
+      if (isClaimer && lead.created_by) {
         // Notify lead generator that agent rejected the lead
-        await triggerLeadNotification(lead.created_by_user_id, 'rejected', {
+        await triggerLeadNotification(lead.created_by, 'rejected', {
           id: lead.id,
-          service_type: lead.service_type,
+          service_type: lead.categories?.name || 'Service',
         });
-      } else if (isGenerator && lead.claimed_by_user_id) {
+      } else if (isGenerator && lead.claimed_by) {
         // Notify agent that generator took back the lead
-        await triggerLeadNotification(lead.claimed_by_user_id, 'recalled', {
+        await triggerLeadNotification(lead.claimed_by, 'recalled', {
           id: lead.id,
-          service_type: lead.service_type,
+          service_type: lead.categories?.name || 'Service',
         });
       }
 
@@ -244,10 +245,10 @@ const LeadDetails: React.FC = () => {
       }
 
       // Notify lead generator
-      if (lead.created_by_user_id) {
-        await triggerLeadNotification(lead.created_by_user_id, 'completed', {
+      if (lead.created_by) {
+        await triggerLeadNotification(lead.created_by, 'completed', {
           id: lead.id,
-          service_type: lead.service_type,
+          service_type: lead.categories?.name || 'Service',
         });
       }
 
@@ -274,13 +275,22 @@ const LeadDetails: React.FC = () => {
     }
   };
 
-  const openWhatsAppChat = (phone: string, isGenerator: boolean) => {
+  const openWhatsAppChat = (targetPhone: string, isAgentConnection: boolean) => {
+    if (!targetPhone) {
+      toast({
+        title: t('error'),
+        description: 'No phone number available',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     const message = generateLeadWhatsAppMessage(
       lead?.id || '',
       user?.user_metadata?.name || 'User',
-      lead?.service_type || 'service'
+      lead?.categories?.name || 'Service'
     );
-    openWhatsApp(phone, message);
+    openWhatsApp(targetPhone, message);
   };
 
   if (loading) {
@@ -351,7 +361,7 @@ const LeadDetails: React.FC = () => {
             </div>
             <div>
               <h2 className="text-lg font-bold text-foreground">
-                {t(getServiceLabel(lead.service_type))}
+                {lead.categories?.name || 'Service'}
               </h2>
               <p className="text-sm text-muted-foreground">
                 Created {formatDistanceToNow(new Date(lead.created_at))} {t('ago')}
@@ -360,21 +370,38 @@ const LeadDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* Location */}
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <div className="flex items-start gap-3">
-            <MapPin className="text-primary mt-1 shrink-0" size={20} />
-            <div>
-              <h3 className="font-semibold text-foreground">{t('location')}</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                {lead.location_address || 'No address provided'}
-              </p>
+        {/* Location - Visible for subscribed/claimed/generated users */}
+        {(isClaimer || isGenerator || profile?.is_subscribed) && (
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="text-primary mt-1 shrink-0" size={20} />
+              <div>
+                <h3 className="font-semibold text-foreground">{t('location')}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {lead.address || lead.location_address || 'No address provided'}
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Customer Info - Only for claimer or generator */}
-        {(isClaimer || isGenerator) && (
+        {/* Location - Blurred for non-subscribed users unless claimed/generated */}
+        {(!profile?.is_subscribed && !isClaimer && !isGenerator) && (
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-start gap-3">
+              <MapPin className="text-primary mt-1 shrink-0" size={20} />
+              <div>
+                <h3 className="font-semibold text-foreground">{t('location')}</h3>
+                <p className="text-sm text-muted-foreground mt-1 blur-sm select-none">
+                  {lead.location_address ? lead.location_address.split(',')[0] + '...' : 'Location details hidden'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Customer Info - Only for claimer, generator, or subscribed users */}
+        {(isClaimer || isGenerator || profile?.is_subscribed) && (
           <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
               <User size={18} className="text-primary" />
@@ -461,7 +488,7 @@ const LeadDetails: React.FC = () => {
         )}
 
         {/* Actions for Generator */}
-        {isGenerator && lead.status === 'claimed' && lead.claimed_by_user_id && (
+        {isGenerator && lead.status === 'claimed' && lead.claimed_by && (
           <div className="space-y-3 pt-4">
             <Button
               variant="outline"
@@ -470,7 +497,7 @@ const LeadDetails: React.FC = () => {
                 const { data } = await supabase
                   .from('profiles')
                   .select('phone')
-                  .eq('id', lead.claimed_by_user_id!)
+                  .eq('id', lead.claimed_by!)
                   .maybeSingle();
 
                 if (data?.phone) {
@@ -494,7 +521,7 @@ const LeadDetails: React.FC = () => {
           </div>
         )}
         {/* Rate User Button - for generator when lead is completed */}
-        {isGenerator && lead.status === 'completed' && lead.claimed_by_user_id && !hasRated && (
+        {isGenerator && lead.status === 'completed' && lead.claimed_by && !hasRated && (
           <div className="pt-4">
             <Button
               variant="hero"
@@ -508,7 +535,7 @@ const LeadDetails: React.FC = () => {
         )}
 
         {/* View Profile Button - for generator when lead is claimed */}
-        {isGenerator && lead.claimed_by_user_id && (
+        {isGenerator && lead.claimed_by && (
           <div className="pt-2">
             <Button
               variant="outline"
@@ -528,7 +555,7 @@ const LeadDetails: React.FC = () => {
       </main>
 
       {/* Rating Modal */}
-      {lead.claimed_by_user_id && (
+      {lead.claimed_by && (
         <RatingModal
           open={showRatingModal || autoShowRating}
           onOpenChange={(open) => {
@@ -536,7 +563,7 @@ const LeadDetails: React.FC = () => {
             setAutoShowRating(false);
           }}
           leadId={lead.id}
-          ratedUserId={lead.claimed_by_user_id}
+          ratedUserId={lead.claimed_by}
           ratedUserName={claimerName}
           onRatingSubmitted={() => {
             setHasRated(true);
@@ -546,11 +573,11 @@ const LeadDetails: React.FC = () => {
       )}
 
       {/* User Profile Modal */}
-      {lead.claimed_by_user_id && (
+      {lead.claimed_by && (
         <UserProfileModal
           open={showProfileModal}
           onOpenChange={setShowProfileModal}
-          userId={lead.claimed_by_user_id}
+          userId={lead.claimed_by}
         />
       )}
       <Dialog open={showRejectModal} onOpenChange={setShowRejectModal}>

@@ -20,7 +20,7 @@ export const acceptLead = async (leadId: string, userId: string): Promise<{ succ
       .from('leads')
       .update({
         status: 'claimed',
-        claimed_by_user_id: userId,
+        claimed_by: userId,
         claimed_at: new Date().toISOString(),
       })
       .eq('id', leadId)
@@ -44,7 +44,7 @@ export const rejectLead = async (leadId: string): Promise<{ success: boolean; er
     const { error } = await supabase
       .from('leads')
       .update({
-        claimed_by_user_id: null,
+        claimed_by: null,
         claimed_at: null,
         status: 'open', // Reset to open so others can claim
       })

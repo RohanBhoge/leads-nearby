@@ -12,7 +12,7 @@ import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminRoute } from "./components/AdminRoute";
-import Onboarding from "./pages/Onboarding";
+
 import Dashboard from "./pages/Dashboard";
 import GenerateLead from "./pages/GenerateLead";
 import GetLeads from "./pages/GetLeads";
@@ -47,6 +47,31 @@ const AppContent = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Load Google Maps Script with API key from environment
+  useEffect(() => {
+    const loadGoogleMaps = () => {
+      // Check if already loaded
+      if (window.google?.maps) return;
+
+      // Check if script is already being loaded
+      if (document.querySelector('script[src*="maps.googleapis.com"]')) return;
+
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.error('Google Maps API key not found in environment variables');
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    };
+
+    loadGoogleMaps();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -59,7 +84,7 @@ const AppContent = () => {
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
-          <Route path="/onboarding" element={<Onboarding />} />
+
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/generate-lead" element={<GenerateLead />} />
           <Route path="/get-leads" element={<GetLeads />} />

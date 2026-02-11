@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -7,434 +7,385 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.1"
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
-      app_settings: {
+      categories: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
-          key: string
-          updated_at: string
-          value: Json
+          name: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          key: string
-          updated_at?: string
-          value?: Json
+          name: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          key?: string
-          updated_at?: string
-          value?: Json
+          name?: string
         }
         Relationships: []
       }
-      community_messages: {
+      lead_progress_logs: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
-          message: string
-          user_id: string
+          lead_id: string | null
+          provider_id: string | null
+          stage_msg: string | null
+          status: Database["public"]["Enums"]["log_status"] | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          message: string
-          user_id: string
+          lead_id?: string | null
+          provider_id?: string | null
+          stage_msg?: string | null
+          status?: Database["public"]["Enums"]["log_status"] | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
-          message?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      lead_messages: {
-        Row: {
-          created_at: string
-          id: string
-          lead_id: string
-          message: string
-          sender_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          lead_id: string
-          message: string
-          sender_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          lead_id?: string
-          message?: string
-          sender_id?: string
+          lead_id?: string | null
+          provider_id?: string | null
+          stage_msg?: string | null
+          status?: Database["public"]["Enums"]["log_status"] | null
         }
         Relationships: [
           {
-            foreignKeyName: "lead_messages_lead_id_fkey"
+            foreignKeyName: "lead_progress_logs_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_progress_logs_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
       }
       leads: {
         Row: {
+          address: string | null
+          amount: number | null
+          category_id: string | null
           claimed_at: string | null
-          claimed_by_user_id: string | null
-          completed_at: string | null
+          claimed_by: string | null
           created_at: string | null
-          created_by_user_id: string
+          created_by: string | null
+          customer_id: string | null
+          description: string | null
+          id: string
+          images: string[] | null
+          location_lat: number | null
+          location_long: number | null
+          status: string | null
+          sub_category_id: string | null
+          title: string | null
+          lead_code: string | null
+          location_address: string | null
           customer_name: string | null
           customer_phone: string
-          id: string
-          import_confidence: number | null
-          lead_code: string | null
-          lead_generator_name: string | null
-          lead_generator_phone: string | null
-          location_address: string | null
-          location_lat: number
-          location_long: number
           notes: string | null
-          photo_url: string | null
-          proof_url: string | null
-          raw_message: string | null
-          rejected_at: string | null
-          service_type: Database["public"]["Enums"]["service_type"]
-          source: string | null
           special_instructions: string | null
-          status: Database["public"]["Enums"]["lead_status"] | null
+          proof_url: string | null
           updated_at: string | null
-          whatsapp_group_id: string | null
-          whatsapp_message_id: string | null
         }
         Insert: {
+          address?: string | null
+          amount?: number | null
+          category_id?: string | null
           claimed_at?: string | null
-          claimed_by_user_id?: string | null
-          completed_at?: string | null
+          claimed_by?: string | null
           created_at?: string | null
-          created_by_user_id: string
-          customer_name?: string | null
-          customer_phone: string
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
           id?: string
-          import_confidence?: number | null
-          lead_code?: string | null
-          lead_generator_name?: string | null
-          lead_generator_phone?: string | null
-          location_address?: string | null
-          location_lat: number
-          location_long: number
-          notes?: string | null
-          photo_url?: string | null
-          proof_url?: string | null
-          raw_message?: string | null
-          rejected_at?: string | null
-          service_type?: Database["public"]["Enums"]["service_type"]
-          source?: string | null
-          special_instructions?: string | null
+          images?: string[] | null
+          location_lat?: number | null
+          location_long?: number | null
           status?: Database["public"]["Enums"]["lead_status"] | null
-          updated_at?: string | null
-          whatsapp_group_id?: string | null
-          whatsapp_message_id?: string | null
-        }
-        Update: {
-          claimed_at?: string | null
-          claimed_by_user_id?: string | null
-          completed_at?: string | null
-          created_at?: string | null
-          created_by_user_id?: string
+          sub_category_id?: string | null
+          title?: string | null
+          lead_code?: string | null
+          location_address?: string | null
           customer_name?: string | null
           customer_phone?: string
-          id?: string
-          import_confidence?: number | null
-          lead_code?: string | null
-          lead_generator_name?: string | null
-          lead_generator_phone?: string | null
-          location_address?: string | null
-          location_lat?: number
-          location_long?: number
           notes?: string | null
-          photo_url?: string | null
-          proof_url?: string | null
-          raw_message?: string | null
-          rejected_at?: string | null
-          service_type?: Database["public"]["Enums"]["service_type"]
-          source?: string | null
           special_instructions?: string | null
-          status?: Database["public"]["Enums"]["lead_status"] | null
+          proof_url?: string | null
           updated_at?: string | null
-          whatsapp_group_id?: string | null
-          whatsapp_message_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          amount?: number | null
+          category_id?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string | null
+          description?: string | null
+          id?: string
+          images?: string[] | null
+          location_lat?: number | null
+          location_long?: number | null
+          status?: Database["public"]["Enums"]["lead_status"] | null
+          sub_category_id?: string | null
+          title?: string | null
+          lead_code?: string | null
+          location_address?: string | null
+          customer_name?: string | null
+          customer_phone?: string
+          notes?: string | null
+          special_instructions?: string | null
+          proof_url?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "leads_claimed_by_user_id_fkey"
-            columns: ["claimed_by_user_id"]
+            foreignKeyName: "leads_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_claimed_by_fkey"
+            columns: ["claimed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "leads_created_by_user_id_fkey"
-            columns: ["created_by_user_id"]
+            foreignKeyName: "leads_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "leads_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_sub_category_id_fkey"
+            columns: ["sub_category_id"]
+            isOneToOne: false
+            referencedRelation: "sub_categories"
+            referencedColumns: ["id"]
+          },
         ]
-      }
-      notifications: {
-        Row: {
-          body: string
-          created_at: string
-          data: Json | null
-          id: string
-          read: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          data?: Json | null
-          id?: string
-          read?: boolean
-          title: string
-          type: string
-          user_id: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          data?: Json | null
-          id?: string
-          read?: boolean
-          title?: string
-          type?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      payments: {
-        Row: {
-          amount: number
-          created_at: string
-          currency: string
-          gateway_order_id: string | null
-          gateway_transaction_id: string | null
-          id: string
-          metadata: Json | null
-          payment_gateway: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount: number
-          created_at?: string
-          currency?: string
-          gateway_order_id?: string | null
-          gateway_transaction_id?: string | null
-          id?: string
-          metadata?: Json | null
-          payment_gateway?: string
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          created_at?: string
-          currency?: string
-          gateway_order_id?: string | null
-          gateway_transaction_id?: string | null
-          id?: string
-          metadata?: Json | null
-          payment_gateway?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
       }
       profiles: {
         Row: {
-          avatar_url: string | null
+          bio: string | null
+          category_id: string | null
           created_at: string | null
+          credit_balance: number | null
+          email: string | null
           id: string
-          is_subscribed: boolean | null
           location_lat: number | null
           location_long: number | null
-          name: string
           phone: string | null
-          preferred_language: string | null
-          service_radius_km: number | null
-          service_type: Database["public"]["Enums"]["service_type"] | null
-          subscription_expires_at: string | null
+          profile_image: string | null
+          role: Database["public"]["Enums"]["user_role"] | null
+          sub_category_id: string | null
           updated_at: string | null
+          user_name: string | null
         }
         Insert: {
-          avatar_url?: string | null
+          bio?: string | null
+          category_id?: string | null
           created_at?: string | null
+          credit_balance?: number | null
+          email?: string | null
           id: string
-          is_subscribed?: boolean | null
           location_lat?: number | null
           location_long?: number | null
-          name?: string
           phone?: string | null
-          preferred_language?: string | null
-          service_radius_km?: number | null
-          service_type?: Database["public"]["Enums"]["service_type"] | null
-          subscription_expires_at?: string | null
+          profile_image?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          sub_category_id?: string | null
           updated_at?: string | null
+          user_name?: string | null
         }
         Update: {
-          avatar_url?: string | null
+          bio?: string | null
+          category_id?: string | null
           created_at?: string | null
+          credit_balance?: number | null
+          email?: string | null
           id?: string
-          is_subscribed?: boolean | null
           location_lat?: number | null
           location_long?: number | null
-          name?: string
           phone?: string | null
-          preferred_language?: string | null
-          service_radius_km?: number | null
-          service_type?: Database["public"]["Enums"]["service_type"] | null
-          subscription_expires_at?: string | null
+          profile_image?: string | null
+          role?: Database["public"]["Enums"]["user_role"] | null
+          sub_category_id?: string | null
           updated_at?: string | null
-        }
-        Relationships: []
-      }
-      push_tokens: {
-        Row: {
-          created_at: string
-          device_type: string | null
-          id: string
-          token: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          device_type?: string | null
-          id?: string
-          token: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          device_type?: string | null
-          id?: string
-          token?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      ratings: {
-        Row: {
-          comment: string | null
-          created_at: string
-          id: string
-          lead_id: string
-          rated_user_id: string
-          rater_id: string
-          rating: number
-        }
-        Insert: {
-          comment?: string | null
-          created_at?: string
-          id?: string
-          lead_id: string
-          rated_user_id: string
-          rater_id: string
-          rating: number
-        }
-        Update: {
-          comment?: string | null
-          created_at?: string
-          id?: string
-          lead_id?: string
-          rated_user_id?: string
-          rater_id?: string
-          rating?: number
+          user_name?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "ratings_lead_id_fkey"
-            columns: ["lead_id"]
+            foreignKeyName: "fk_profiles_category"
+            columns: ["category_id"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_profiles_sub_category"
+            columns: ["sub_category_id"]
+            isOneToOne: false
+            referencedRelation: "sub_categories"
             referencedColumns: ["id"]
           },
         ]
       }
-      user_roles: {
+      sub_categories: {
         Row: {
-          created_at: string
+          category_id: string | null
+          created_at: string | null
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          name: string
         }
         Insert: {
-          created_at?: string
+          category_id?: string | null
+          created_at?: string | null
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          name: string
         }
         Update: {
-          created_at?: string
+          category_id?: string | null
+          created_at?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sub_categories_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          amount_paid: number | null
+          created_at: string | null
+          end_date: string | null
+          id: string
+          payment_id: string | null
+          provider_id: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["subscription_status"] | null
+        }
+        Insert: {
+          amount_paid?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          payment_id?: string | null
+          provider_id: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
+        }
+        Update: {
+          amount_paid?: number | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          payment_id?: string | null
+          provider_id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["subscription_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       whatsapp_messages: {
         Row: {
+          confidence_score: number | null
           created_at: string | null
           group_id: string | null
-          group_name: string | null
           id: string
-          message_timestamp: string | null
-          raw_message: string | null
-          sender_name: string | null
+          new_msg: string | null
+          personal_data: Json | null
           sender_phone: string | null
+          source: string | null
           status: string | null
+          updated_at: string | null
+          whatsapp_msg_id: string | null
         }
         Insert: {
+          confidence_score?: number | null
           created_at?: string | null
           group_id?: string | null
-          group_name?: string | null
           id?: string
-          message_timestamp?: string | null
-          raw_message?: string | null
-          sender_name?: string | null
+          new_msg?: string | null
+          personal_data?: Json | null
           sender_phone?: string | null
+          source?: string | null
           status?: string | null
+          updated_at?: string | null
+          whatsapp_msg_id?: string | null
         }
         Update: {
+          confidence_score?: number | null
           created_at?: string | null
           group_id?: string | null
-          group_name?: string | null
           id?: string
-          message_timestamp?: string | null
-          raw_message?: string | null
-          sender_name?: string | null
+          new_msg?: string | null
+          personal_data?: Json | null
           sender_phone?: string | null
+          source?: string | null
           status?: string | null
+          updated_at?: string | null
+          whatsapp_msg_id?: string | null
         }
         Relationships: []
       }
@@ -443,31 +394,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user"
-      lead_status:
-      | "open"
-      | "claimed"
-      | "completed"
-      | "cancelled"
-      | "rejected"
-      | "pending"
-      service_type:
-      | "general"
-      | "rent_agreement"
-      | "Leads Near By_work"
-      | "income_certificate"
-      | "aadhar_work"
-      | "maha_e_seva_work"
-      | "other"
+      lead_status: "open" | "in_progress" | "completed" | "cancelled"
+      log_status: "fulfill" | "pending" | "rejected"
+      subscription_status: "active" | "expired" | "pending"
+      user_role: "admin" | "user" | "provider"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -593,26 +526,16 @@ export type CompositeTypes<
   : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user"],
-      lead_status: [
-        "open",
-        "claimed",
-        "completed",
-        "cancelled",
-        "rejected",
-        "pending",
-      ],
-      service_type: [
-        "general",
-        "rent_agreement",
-        "Leads Near By_work",
-        "income_certificate",
-        "aadhar_work",
-        "maha_e_seva_work",
-        "other",
-      ],
+      lead_status: ["open", "in_progress", "completed", "cancelled"],
+      log_status: ["fulfill", "pending", "rejected"],
+      subscription_status: ["active", "expired", "pending"],
+      user_role: ["admin", "user", "provider"],
     },
   },
 } as const
+

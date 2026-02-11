@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, User, FileText, Loader2, CheckCircle, Camera } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,26 +14,83 @@ import BottomNav from '@/components/BottomNav';
 import LocationPicker from '@/components/LocationPicker';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
-
-import { SERVICE_TYPES, ServiceTypeValue, DEFAULT_SERVICE_TYPE } from '@/constants/serviceTypes';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const phoneSchema = z.string().regex(/^[6-9]\d{9}$/, 'Enter valid 10-digit phone number');
 
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface SubCategory {
+  id: string;
+  name: string;
+  category_id: string;
+}
+
 const GenerateLead: React.FC = () => {
-  const [serviceType, setServiceType] = useState<ServiceTypeValue>(DEFAULT_SERVICE_TYPE);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
+  const [selectedSubCategoryId, setSelectedSubCategoryId] = useState<string>('');
+
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [notes, setNotes] = useState('');
+  const [price, setPrice] = useState<number | ''>('');
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [phoneError, setPhoneError] = useState('');
 
+  // AI Verification State
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{ score: number; reason: string } | null>(null);
+  const [bypassVerification, setBypassVerification] = useState(false);
+
   const { user } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name');
+      if (data) setCategories(data);
+    };
+
+    const fetchSubCategories = async () => {
+      const { data } = await supabase
+        .from('sub_categories')
+        .select('id, name, category_id')
+        .order('name');
+      if (data) setSubCategories(data);
+    };
+
+    fetchCategories();
+    fetchSubCategories();
+  }, []);
+
+  // Filter subcategories by selected category
+  const filteredSubCategories = selectedCategoryId
+    ? subCategories.filter(sc => sc.category_id === selectedCategoryId)
+    : [];
 
   const handleLocationChange = (lat: number, lng: number, addr?: string) => {
     setLatitude(lat);
@@ -53,6 +111,51 @@ const GenerateLead: React.FC = () => {
     }
   };
 
+  const verifyLead = async (): Promise<boolean> => {
+    // Skip if already bypassed or no description to check
+    if (bypassVerification || !notes || notes.length < 5) return true;
+
+    setIsVerifying(true);
+    try {
+      const categoryName = categories.find(c => c.id === selectedCategoryId)?.name || 'Unknown';
+      const subCategoryName = subCategories.find(sc => sc.id === selectedSubCategoryId)?.name || 'Unknown';
+
+      const { data, error } = await supabase.functions.invoke('verify-lead-content', {
+        body: {
+          description: notes,
+          category: categoryName,
+          sub_category: subCategoryName,
+          location: address || `${latitude}, ${longitude}`,
+          price: price
+        },
+        headers: {
+          // Explicitly use Anon Key to avoid 401s from User Token issues during PoC
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        }
+      });
+
+      if (error) {
+        console.error('Verification failed:', error);
+        return true; // Fail open (allow post if tech error)
+      }
+
+      console.log('Verification result:', data);
+
+      if (data && !data.is_matches) {
+        setVerificationResult({ score: data.score, reason: data.reason });
+        setShowWarning(true);
+        return false; // Stop submission
+      }
+
+      return true; // Safe
+    } catch (e) {
+      console.error('Verification exception:', e);
+      return true;
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -66,46 +169,45 @@ const GenerateLead: React.FC = () => {
       return;
     }
 
+    // 1. Verify Content
+    const isSafe = await verifyLead();
+    if (!isSafe) {
+      setLoading(false);
+      return; // Stop and show dialog
+    }
+
+    // 2. Submit Lead
+    submitToDb();
+  };
+
+  const submitToDb = async () => {
     setLoading(true);
 
     const { data: newLead, error } = await supabase.from('leads').insert({
-      created_by_user_id: user?.id,
-      service_type: serviceType,
+      created_by: user?.id, // Track who created this lead
+      customer_id: null, // Lead generator is not the customer
+      category_id: selectedCategoryId || null,
+      sub_category_id: selectedSubCategoryId || null,
       location_lat: latitude,
       location_long: longitude,
-      location_address: address,
-      customer_name: customerName || null,
+      address: address || null,
+      title: `${customerName || 'Customer'} - ${selectedCategoryId ? 'Service Request' : 'Lead'}`,
+      description: notes || null,
       customer_phone: customerPhone,
-      notes: notes || null,
+      amount: price || null,
       status: 'open',
     }).select('id').single();
 
     if (error) {
+      console.error('Lead creation error:', error);
       setLoading(false);
       toast({
         variant: 'destructive',
         title: t('error'),
-        description: 'Failed to create lead. Please try again.',
+        description: `Failed to create lead: ${error.message}`,
       });
       return;
     }
-
-    // Trigger WhatsApp notifications to nearby users (fire and forget)
-    supabase.functions.invoke('send-lead-notification', {
-      body: {
-        lead_id: newLead.id,
-        lead_lat: latitude,
-        lead_long: longitude,
-        service_type: serviceType,
-        location_address: address,
-      },
-    }).then(({ data, error: notifError }) => {
-      if (notifError) {
-        console.error('Error sending lead notifications:', notifError);
-      } else {
-        console.log('Lead notifications sent:', data);
-      }
-    });
 
     setLoading(false);
     toast({
@@ -113,6 +215,12 @@ const GenerateLead: React.FC = () => {
       description: t('leadCreated'),
     });
     navigate('/dashboard');
+  };
+
+  const handleConfirmPost = () => {
+    setBypassVerification(true);
+    setShowWarning(false);
+    submitToDb();
   };
 
   const canSubmit = customerPhone.length === 10 && latitude !== null && longitude !== null;
@@ -123,25 +231,47 @@ const GenerateLead: React.FC = () => {
 
       <main className="px-4 py-6 max-w-md mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Service Type */}
+          {/* Category Selection */}
           <div className="space-y-2 animate-slide-up">
             <label className="flex items-center gap-2 text-sm font-medium text-foreground">
               <FileText size={18} className="text-primary" />
-              {t('serviceType')}
+              Category
             </label>
-            <Select value={serviceType} onValueChange={(v) => setServiceType(v as ServiceTypeValue)}>
+            <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
               <SelectTrigger className="h-14 text-base rounded-xl">
-                <SelectValue />
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {SERVICE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Subcategory Selection */}
+          {selectedCategoryId && filteredSubCategories.length > 0 && (
+            <div className="space-y-2 animate-slide-up">
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <FileText size={18} className="text-primary" />
+                Subcategory
+              </label>
+              <Select value={selectedSubCategoryId} onValueChange={setSelectedSubCategoryId}>
+                <SelectTrigger className="h-14 text-base rounded-xl">
+                  <SelectValue placeholder="Select subcategory" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredSubCategories.map((subCat) => (
+                    <SelectItem key={subCat.id} value={subCat.id}>
+                      {subCat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Location */}
           <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -188,8 +318,31 @@ const GenerateLead: React.FC = () => {
             {phoneError && <p className="text-destructive text-sm">{phoneError}</p>}
           </div>
 
-          {/* Notes */}
+          {/* Lead Price */}
           <div className="space-y-2 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <FileText size={18} className="text-primary" />
+              Lead Price (₹)
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground">₹</span>
+              <Input
+                type="number"
+                placeholder="Enter amount"
+                value={price}
+                onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                className="h-14 text-base rounded-xl pl-8"
+                min="0"
+                step="10"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Amount the service provider will receive for completing this lead
+            </p>
+          </div>
+
+          {/* Notes */}
+          <div className="space-y-2 animate-slide-up" style={{ animationDelay: '0.5s' }}>
             <label className="flex items-center gap-2 text-sm font-medium text-foreground">
               <FileText size={18} className="text-primary" />
               {t('notes')} (Optional)
@@ -203,7 +356,7 @@ const GenerateLead: React.FC = () => {
           </div>
 
           {/* Photo Upload Placeholder */}
-          <div className="animate-slide-up" style={{ animationDelay: '0.5s' }}>
+          <div className="animate-slide-up" style={{ animationDelay: '0.6s' }}>
             <button
               type="button"
               className="w-full h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
@@ -214,7 +367,7 @@ const GenerateLead: React.FC = () => {
           </div>
 
           {/* Submit */}
-          <div className="pt-4 animate-slide-up" style={{ animationDelay: '0.6s' }}>
+          <div className="pt-4 animate-slide-up" style={{ animationDelay: '0.7s' }}>
             <Button
               type="submit"
               variant="hero"
@@ -233,6 +386,34 @@ const GenerateLead: React.FC = () => {
           </div>
         </form>
       </main>
+
+      {/* Warning Dialog */}
+      <AlertDialog open={showWarning} onOpenChange={setShowWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+              ⚠️ Check Details
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="text-base text-foreground font-medium">
+                Your description does not match the category you selected.
+              </p>
+              <div className="bg-amber-50 p-3 rounded-md text-amber-800 text-sm border border-amber-200">
+                "{verificationResult?.reason}"
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Please edit your details to ensure the right service providers see your lead.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowWarning(false)}>Edit Details</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmPost} className="bg-primary hover:bg-primary/90">
+              Post Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <BottomNav />
     </div>

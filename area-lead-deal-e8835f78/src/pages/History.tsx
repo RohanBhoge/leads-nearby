@@ -13,13 +13,15 @@ import { getDaysUntilExpiry, isLeadAboutToExpire } from '@/lib/auto-rejection';
 
 interface Lead {
   id: string;
-  service_type: string;
-  location_address: string | null;
+  categories: { name: string } | null;
+  address: string | null;
   customer_name: string | null;
   customer_phone: string;
   status: string;
   created_at: string;
   claimed_at: string | null;
+  claimed_by: string | null;
+  created_by: string | null;
 }
 
 import { getServiceLabel } from '@/constants/serviceTypes';
@@ -49,19 +51,20 @@ const History: React.FC = () => {
       // Fetch leads I created
       const { data: created } = await supabase
         .from('leads')
-        .select('*')
-        .eq('created_by_user_id', user.id)
+        .select('*, categories(name)')
+        .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       // Fetch leads I claimed
       const { data: claimed } = await supabase
         .from('leads')
-        .select('*')
-        .eq('claimed_by_user_id', user.id)
+        .select('*, categories(name)')
+        .eq('claimed_by', user.id)
         .order('claimed_at', { ascending: false });
 
-      setMyLeads(created || []);
-      setClaimedLeads(claimed || []);
+      // Cast to Lead[] to handle potential type mismatches with generated types
+      setMyLeads((created as unknown as Lead[]) || []);
+      setClaimedLeads((claimed as unknown as Lead[]) || []);
       setLoading(false);
     };
 
@@ -83,7 +86,7 @@ const History: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-3">
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">
-            {t(getServiceLabel(lead.service_type))}
+            {lead.categories?.name || 'Service'}
           </span>
           <div className={cn("flex items-center gap-1 text-sm font-medium", statusColor)}>
             <StatusIcon size={16} />
@@ -107,7 +110,7 @@ const History: React.FC = () => {
         <div className="flex items-start gap-2 mb-3">
           <MapPin size={16} className="text-muted-foreground mt-0.5 shrink-0" />
           <p className="text-sm text-muted-foreground">
-            {lead.location_address || 'Location not specified'}
+            {lead.address || 'Location not specified'}
           </p>
         </div>
 

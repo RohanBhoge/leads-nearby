@@ -48,10 +48,10 @@ export function exportLeadsToCSV(leads: any[], fields: string[] = []): string {
   }
 
   const actualFields = fields.length > 0 ? fields : Object.keys(leads[0]);
-  
+
   // Create header
   const header = actualFields.join(',');
-  
+
   // Create rows
   const rows = leads.map((lead) =>
     actualFields
@@ -65,7 +65,7 @@ export function exportLeadsToCSV(leads: any[], fields: string[] = []): string {
       })
       .join(',')
   );
-  
+
   return [header, ...rows].join('\n');
 }
 
@@ -84,7 +84,7 @@ export function downloadFile(content: string, filename: string, mimeType: string
   element.setAttribute('href', `data:${mimeType};charset=utf-8,${encodeURIComponent(content)}`);
   element.setAttribute('download', filename);
   element.style.display = 'none';
-  
+
   document.body.appendChild(element);
   element.click();
   document.body.removeChild(element);
@@ -97,15 +97,15 @@ export function generateLeadReport(leads: any[]): LeadReport {
   const completed = leads.filter((l) => l.status === 'completed');
   const open = leads.filter((l) => l.status === 'open');
   const claimed = leads.filter((l) => l.status === 'claimed');
-  
+
   // Calculate metrics
   const totalLeads = leads.length;
   const completionRate = totalLeads > 0 ? (completed.length / totalLeads) * 100 : 0;
-  
+
   // Calculate average times
   let averageClaimTime = 0;
   let averageCompletionTime = 0;
-  
+
   const claimedLeads = leads.filter((l) => l.claimed_at);
   if (claimedLeads.length > 0) {
     const totalClaimTime = claimedLeads.reduce((sum, l) => {
@@ -115,7 +115,7 @@ export function generateLeadReport(leads: any[]): LeadReport {
     }, 0);
     averageClaimTime = totalClaimTime / claimedLeads.length / (1000 * 60 * 60); // in hours
   }
-  
+
   if (completed.length > 0) {
     const totalCompletionTime = completed.reduce((sum, l) => {
       const createdTime = new Date(l.created_at).getTime();
@@ -124,25 +124,26 @@ export function generateLeadReport(leads: any[]): LeadReport {
     }, 0);
     averageCompletionTime = totalCompletionTime / completed.length / (1000 * 60 * 60); // in hours
   }
-  
+
   // Top providers
-  const providerStats = new Map();
+  const agentStats: { [key: string]: any } = {};
   completed.forEach((lead) => {
-    if (lead.claimed_by_user_id) {
-      const key = lead.claimed_by_user_id;
-      if (!providerStats.has(key)) {
-        providerStats.set(key, {
-          userId: lead.claimed_by_user_id,
+    if (lead.claimed_by) {
+      const key = lead.claimed_by;
+
+      if (!agentStats[key]) {
+        agentStats[key] = {
+          userId: lead.claimed_by,
           name: lead.claimer_name || 'Unknown',
           completedCount: 0,
           ratings: [],
-        });
+        };
       }
-      const stats = providerStats.get(key);
+      const stats = agentStats[key];
       stats.completedCount += 1;
     }
   });
-  
+
   const topProviders = Array.from(providerStats.values())
     .sort((a, b) => b.completedCount - a.completedCount)
     .slice(0, 10)
@@ -152,7 +153,7 @@ export function generateLeadReport(leads: any[]): LeadReport {
       completedCount: p.completedCount,
       averageRating: p.ratings.length > 0 ? p.ratings.reduce((a: number, b: number) => a + b) / p.ratings.length : 0,
     }));
-  
+
   // Top service types
   const serviceTypeStats = new Map();
   leads.forEach((lead) => {
@@ -170,7 +171,7 @@ export function generateLeadReport(leads: any[]): LeadReport {
       stats.completed += 1;
     }
   });
-  
+
   const topServiceTypes = Array.from(serviceTypeStats.values())
     .sort((a, b) => b.count - a.count)
     .map((s) => ({
@@ -178,7 +179,7 @@ export function generateLeadReport(leads: any[]): LeadReport {
       count: s.count,
       completionRate: (s.completed / s.count) * 100,
     }));
-  
+
   return {
     totalLeads,
     completedLeads: completed.length,
@@ -197,7 +198,7 @@ export function generateLeadReport(leads: any[]): LeadReport {
  */
 export function exportReport(report: LeadReport, format: 'csv' | 'json'): void {
   const timestamp = formatISO(new Date(), { representation: 'date' });
-  
+
   if (format === 'json') {
     const json = JSON.stringify(report, null, 2);
     downloadFile(json, `lead-report-${timestamp}.json`, 'application/json');
@@ -212,7 +213,7 @@ export function exportReport(report: LeadReport, format: 'csv' | 'json'): void {
  */
 function reportToCSV(report: LeadReport): string {
   const lines: string[] = [];
-  
+
   lines.push('Lead Report Summary');
   lines.push('');
   lines.push(`Total Leads,${report.totalLeads}`);
@@ -223,20 +224,20 @@ function reportToCSV(report: LeadReport): string {
   lines.push(`Avg Claim Time (hrs),${report.averageClaimTime}`);
   lines.push(`Avg Completion Time (hrs),${report.averageCompletionTime}`);
   lines.push('');
-  
+
   lines.push('Top Service Types');
   lines.push('Service Type,Count,Completion Rate');
   report.topServiceTypes.forEach((s) => {
     lines.push(`${s.serviceType},${s.count},${s.completionRate.toFixed(2)}%`);
   });
   lines.push('');
-  
+
   lines.push('Top Providers');
   lines.push('Name,Completed,Avg Rating');
   report.topProviders.forEach((p) => {
     lines.push(`${p.name},${p.completedCount},${p.averageRating.toFixed(2)}`);
   });
-  
+
   return lines.join('\n');
 }
 
@@ -245,7 +246,7 @@ function reportToCSV(report: LeadReport): string {
  */
 export function generateAdminDashboardData(leads: any[], payments: any[] = []): any {
   const report = generateLeadReport(leads);
-  
+
   const revenueMetrics = {
     totalRevenue: payments.reduce((sum, p) => sum + (p.amount || 0), 0),
     averageLeadValue: leads.length > 0 ? payments.reduce((sum, p) => sum + (p.amount || 0), 0) / leads.length : 0,
@@ -253,7 +254,7 @@ export function generateAdminDashboardData(leads: any[], payments: any[] = []): 
       .filter((p) => p.type === 'subscription')
       .reduce((sum, p) => sum + (p.amount || 0), 0),
   };
-  
+
   return {
     ...report,
     revenueMetrics,

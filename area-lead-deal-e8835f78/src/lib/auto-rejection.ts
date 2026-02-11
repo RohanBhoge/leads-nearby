@@ -18,7 +18,7 @@ export const checkExpiredLeads = async (): Promise<number> => {
     // Find leads that need to be auto-rejected
     const { data: expiredLeads, error: fetchError } = await supabase
       .from('leads')
-      .select('id, claimed_by_user_id, created_by_user_id, service_type')
+      .select('id, claimed_by, created_by, categories(name)')
       .eq('status', 'claimed')
       .not('claimed_at', 'is', null)
       .lt('claimed_at', threeDaysAgo.toISOString())
@@ -40,39 +40,41 @@ export const checkExpiredLeads = async (): Promise<number> => {
         .from('leads')
         .update({
           status: 'open',
-          claimed_by_user_id: null,
+          claimed_by: null,
           claimed_at: null,
-          rejected_at: new Date().toISOString(),
+          rejected_at: new Date().toISOString(), // Ensure this column exists or ignore if not critical
         })
         .eq('id', lead.id);
 
       if (!updateError) {
         rejectedCount++;
 
+        const serviceName = lead.categories?.name || 'Service';
+
         // Send notification to lead generator
-        if (lead.created_by_user_id) {
+        if (lead.created_by) {
           await supabase.from('notifications').insert({
-            user_id: lead.created_by_user_id,
+            user_id: lead.created_by,
             type: 'lead_auto_rejected',
             title: 'Lead Auto-Released',
             body: `Your lead was automatically released after 3 days without completion.`,
             data: {
               leadId: lead.id,
-              serviceType: lead.service_type,
+              serviceType: serviceName,
             },
           });
         }
 
         // Send notification to agent
-        if (lead.claimed_by_user_id) {
+        if (lead.claimed_by) {
           await supabase.from('notifications').insert({
-            user_id: lead.claimed_by_user_id,
+            user_id: lead.claimed_by,
             type: 'lead_auto_rejected',
             title: 'Lead Expired',
             body: `A claimed lead was automatically released after 3 days without completion.`,
             data: {
               leadId: lead.id,
-              serviceType: lead.service_type,
+              serviceType: serviceName,
             },
           });
         }

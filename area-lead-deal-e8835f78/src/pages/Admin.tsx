@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, MapPin, Phone, Check, X, Loader2, Shield, MessageSquare, Copy, RefreshCw, AlertTriangle, CheckCircle, Clock, Hash, Star, Eye, Trash2 } from 'lucide-react';
+import { Search, Users, MapPin, Phone, Check, X, Loader2, Shield, MessageSquare, Copy, RefreshCw, AlertTriangle, CheckCircle, Clock, Hash, Star, Eye, Trash2, Edit2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -24,17 +24,22 @@ import LeadTimeline from '@/components/LeadTimeline';
 import AdminRatingManagement from '@/components/AdminRatingManagement';
 import SubscriptionTimer from '@/components/SubscriptionTimer';
 import WhatsAppMessagePreview from '@/components/WhatsAppMessagePreview';
+import AdminEditUserDialog from '@/components/AdminEditUserDialog';
 
 interface UserProfile {
   id: string;
-  name: string;
+  user_name: string;
   phone: string | null;
   location_lat: number | null;
   location_long: number | null;
-  service_type: string | null;
+  category_id: string | null;
+  sub_category_id: string | null;
   is_subscribed: boolean | null;
   subscription_expires_at: string | null;
   created_at: string | null;
+  service_radius_km?: number | null;
+  categories: { name: string } | null;
+  sub_categories: { name: string } | null;
 }
 
 interface WhatsAppLead {
@@ -42,7 +47,7 @@ interface WhatsAppLead {
   customer_name: string | null;
   customer_phone: string;
   location_address: string | null;
-  service_type: string;
+  categories: { name: string } | null;
   import_confidence: number | null;
   raw_message: string | null;
   created_at: string;
@@ -80,9 +85,10 @@ const Admin: React.FC = () => {
   const [repostingLead, setRepostingLead] = useState<any | null>(null);
   const [showRepostDialog, setShowRepostDialog] = useState(false);
   const [repostLoading, setRepostLoading] = useState(false);
+
   // Helper: check if 6 hours have passed since created_at
   function canRepost(lead: any) {
-    if (!lead.created_at || lead.claimed_by_user_id) return false;
+    if (!lead.created_at || lead.claimed_by) return false;
     const created = new Date(lead.created_at).getTime();
     const now = Date.now();
     return now - created >= 6 * 60 * 60 * 1000;
@@ -95,11 +101,11 @@ const Admin: React.FC = () => {
       // Delete old lead
       const { error: delError } = await supabase.from('leads').delete().eq('id', lead.id);
       if (delError) throw delError;
-      // Prepare new lead data (remove id, created_at, claimed_by_user_id, status, lead_code)
-      const { id, created_at, claimed_by_user_id, status, lead_code, ...newLeadData } = lead;
+      // Prepare new lead data (remove id, created_at, claimed_by, status, lead_code)
+      const { id, created_at, claimed_by, status, lead_code, ...newLeadData } = lead;
       // Insert new lead
       const { data: newLead, error: insError } = await supabase.from('leads').insert([
-        { ...newLeadData, status: 'open', claimed_by_user_id: null }
+        { ...newLeadData, status: 'open', claimed_by: null }
       ]).select().single();
       if (insError) throw insError;
       // Optionally: trigger notifications here if needed
@@ -107,13 +113,15 @@ const Admin: React.FC = () => {
       setRepostingLead(null);
       toast({ title: 'Lead reposted', description: 'The lead has been reposted successfully.' });
       // Refresh leads
-      fetchAdminLeads();
+      // fetchAdminLeads(); // TODO: restore or move fetchAdminLeads to component scope
+      window.location.reload(); // Temporary fix for refresh
     } catch (err: any) {
       toast({ title: 'Repost failed', description: err.message || 'Could not repost lead', variant: 'destructive' });
     } finally {
       setRepostLoading(false);
     }
   }
+
   const [loadingLeads, setLoadingLeads] = useState(false);
   const [whatsappLeads, setWhatsappLeads] = useState<WhatsAppLead[]>([]);
   const [loadingWhatsapp, setLoadingWhatsapp] = useState(false);
@@ -134,8 +142,12 @@ const Admin: React.FC = () => {
   const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<Set<string>>(new Set());
   const [previewMessage, setPreviewMessage] = useState<WhatsAppMessage | null>(null);
+
   const [previewOpen, setPreviewOpen] = useState(false);
 
+  // Edit User State
+  const [showEditUserDialog, setShowEditUserDialog] = useState(false);
+  const [selectedUserToEdit, setSelectedUserToEdit] = useState<UserProfile | null>(null);
 
   // Check if current user is admin
   useEffect(() => {
@@ -173,24 +185,31 @@ const Admin: React.FC = () => {
         const [profileResult, completedResult] = await Promise.all([
           supabase
             .from('profiles')
-            .select('*')
+            .select('*, categories(name), sub_categories(name)')
             .order('created_at', { ascending: false }),
           supabase
             .from('leads')
-            .select('claimed_by_user_id')
+            .select('claimed_by')
             .eq('status', 'completed'),
         ]);
 
         if (profileResult.error) throw profileResult.error;
 
-        setUsers(profileResult.data || []);
-        setFilteredUsers(profileResult.data || []);
+        // Transform data to match UserProfile interface
+        const usersData: UserProfile[] = (profileResult.data || []).map((user: any) => ({
+          ...user,
+          categories: user.categories,
+          sub_categories: user.sub_categories
+        }));
+
+        setUsers(usersData);
+        setFilteredUsers(usersData);
 
         if (!completedResult.error && completedResult.data) {
-          const counts = (completedResult.data as { claimed_by_user_id: string | null }[]).reduce(
+          const counts = (completedResult.data as { claimed_by: string | null }[]).reduce(
             (acc, lead) => {
-              if (lead.claimed_by_user_id) {
-                acc[lead.claimed_by_user_id] = (acc[lead.claimed_by_user_id] || 0) + 1;
+              if (lead.claimed_by) {
+                acc[lead.claimed_by] = (acc[lead.claimed_by] || 0) + 1;
               }
               return acc;
             },
@@ -224,8 +243,11 @@ const Admin: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('leads')
-          .select('*')
-          .eq('created_by_user_id', user.id)
+          .select(`
+            *,
+            created_by_user: profiles!created_by(id, name: user_name, phone)
+          `)
+          .eq('created_by', user.id)
           .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -278,7 +300,7 @@ const Admin: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('leads')
-          .select('id, customer_name, customer_phone, location_address, service_type, import_confidence, raw_message, created_at, status, source, lead_generator_name')
+          .select('id, customer_name, customer_phone, location_address, categories(name), import_confidence, raw_message, created_at, status, source, lead_generator_name')
           .in('source', ['whatsapp', 'whatsapp_group', 'whatsapp_forwarded', 'msg91'])
           .order('created_at', { ascending: false })
           .limit(50);
@@ -314,7 +336,7 @@ const Admin: React.FC = () => {
             const sourceLabel = newLead.source === 'msg91' ? 'MSG91' : 'WhatsApp';
             toast({
               title: `🆕 New ${sourceLabel} Lead`,
-              description: `${newLead.customer_name || 'Unknown'} - ${newLead.customer_phone}`,
+              description: `${newLead.customer_name || 'Unknown'} - ${newLead.customer_phone} `,
             });
           }
         }
@@ -371,7 +393,7 @@ const Admin: React.FC = () => {
   const processAutoApproval = async (message: WhatsAppMessage) => {
     toast({
       title: '🔄 Auto-processing message...',
-      description: `From: ${message.sender_name || message.sender_phone}`,
+      description: `From: ${message.sender_name || message.sender_phone} `,
     });
 
     try {
@@ -379,7 +401,7 @@ const Admin: React.FC = () => {
         body: {
           message_id: message.id,
           raw_message: message.raw_message || `(No text content) Phone: ${message.sender_phone?.replace(/\D/g, '').slice(-10) || '9999999999'
-            }`,
+            } `,
           sender_phone: message.sender_phone,
           sender_name: message.sender_name,
         },
@@ -469,7 +491,7 @@ const Admin: React.FC = () => {
           } else {
             toast({
               title: '📩 New WhatsApp Message',
-              description: `From: ${newMessage.sender_name || newMessage.sender_phone}`,
+              description: `From: ${newMessage.sender_name || newMessage.sender_phone} `,
             });
           }
         }
@@ -511,10 +533,10 @@ const Admin: React.FC = () => {
         .from('leads')
         .select(`
           *,
-          claimed_by_user:profiles!leads_claimed_by_user_id_fkey(id, name, phone),
-          created_by_user:profiles!leads_created_by_user_id_fkey(id, name, phone)
-        `)
-        .ilike('lead_code', `%${leadSearchQuery.trim()}%`)
+          claimed_by_user: profiles!leads_claimed_by_fkey(id, name, phone),
+            created_by_user: profiles!leads_created_by_fkey(id, name, phone)
+              `)
+        .ilike('lead_code', `% ${leadSearchQuery.trim()}% `)
         .limit(1)
         .maybeSingle();
 
@@ -548,7 +570,7 @@ const Admin: React.FC = () => {
       setAutoApproveEnabled(newValue);
       toast({
         title: 'Setting Updated',
-        description: `Auto-approve is now ${newValue ? 'enabled' : 'disabled'}`,
+        description: `Auto - approve is now ${newValue ? 'enabled' : 'disabled'} `,
       });
     } catch (error) {
       console.error('Error updating auto-approve:', error);
@@ -738,7 +760,7 @@ const Admin: React.FC = () => {
         body: {
           message_id: message.id,
           raw_message: message.raw_message || `(No text content) Phone: ${message.sender_phone?.replace(/\D/g, '').slice(-10) || '9999999999'
-            }`,
+            } `,
           sender_phone: message.sender_phone,
           sender_name: message.sender_name,
           // Pass edited data to override AI parsing
@@ -1097,47 +1119,47 @@ const Admin: React.FC = () => {
         <div className="flex gap-2 border-b overflow-x-auto flex-nowrap scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent pb-2">
           <button
             onClick={() => setActiveTab('users')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'users'
+            className={`px - 4 py - 2 font - medium border - b - 2 transition - colors ${activeTab === 'users'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              } `}
           >
             User Management
           </button>
           <button
             onClick={() => setActiveTab('leads')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'leads'
+            className={`px - 4 py - 2 font - medium border - b - 2 transition - colors ${activeTab === 'leads'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              } `}
           >
             Create Leads
           </button>
           <button
             onClick={() => setActiveTab('lead-tracking')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'lead-tracking'
+            className={`px - 4 py - 2 font - medium border - b - 2 transition - colors ${activeTab === 'lead-tracking'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              } `}
           >
             Lead Tracking
           </button>
           <button
             onClick={() => setActiveTab('ratings')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'ratings'
+            className={`px - 4 py - 2 font - medium border - b - 2 transition - colors ${activeTab === 'ratings'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              } `}
           >
             <Star className="inline h-4 w-4 mr-1" />
             Ratings
           </button>
           <button
             onClick={() => setActiveTab('whatsapp')}
-            className={`px-4 py-2 font-medium border-b-2 transition-colors ${activeTab === 'whatsapp'
+            className={`px - 4 py - 2 font - medium border - b - 2 transition - colors ${activeTab === 'whatsapp'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              } `}
           >
             <MessageSquare className="inline h-4 w-4 mr-1" />
             WhatsApp
@@ -1232,17 +1254,18 @@ const Admin: React.FC = () => {
                           <TableHead className="text-lg font-bold py-3">Name</TableHead>
                           <TableHead className="text-lg font-bold py-3">Phone</TableHead>
                           <TableHead className="text-lg font-bold py-3">Location</TableHead>
-                          <TableHead className="text-lg font-bold py-3">Service Type</TableHead>
+                          <TableHead className="text-lg font-bold py-3">Category</TableHead>
+                          <TableHead className="text-lg font-bold py-3">Subcategory</TableHead>
                           <TableHead className="text-center text-lg font-bold py-3">Leads Completed</TableHead>
-                          <TableHead className="text-lg font-bold py-3">Status</TableHead>
                           <TableHead className="text-right text-lg font-bold py-3">Subscription</TableHead>
+                          <TableHead className="text-right text-lg font-bold py-3">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredUsers.map((userProfile, idx) => (
                           <TableRow key={userProfile.id} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
                             <TableCell className="font-medium py-3 rounded-l-xl">
-                              {userProfile.name || 'Unnamed'}
+                              {userProfile.user_name || 'Unnamed'}
                             </TableCell>
                             <TableCell className="py-3">
                               {userProfile.phone ? (
@@ -1268,24 +1291,35 @@ const Admin: React.FC = () => {
                               )}
                             </TableCell>
                             <TableCell className="py-3">
-                              <Badge variant="secondary">
-                                {formatServiceType(userProfile.service_type)}
-                              </Badge>
+                              {userProfile.categories?.name ? (
+                                <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-none">
+                                  {userProfile.categories.name}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-400 text-sm">N/A</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="py-3">
+                              {userProfile.sub_categories?.name ? (
+                                <Badge variant="outline" className="text-gray-600 border-gray-200">
+                                  {userProfile.sub_categories.name}
+                                </Badge>
+                              ) : (
+                                <span className="text-gray-400 text-sm">N/A</span>
+                              )}
                             </TableCell>
                             <TableCell className="text-center font-semibold py-3">
                               {completedLeadCounts[userProfile.id] ?? 0}
                             </TableCell>
-                            <TableCell className="py-3">
-                              {userProfile.is_subscribed ? (
-                                <Badge className="bg-primary/10 text-primary border-primary/20">
-                                  Subscribed
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline">Free</Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right py-3 rounded-r-xl">
+                            <TableCell className="text-right py-3">
                               <div className="flex items-center justify-end gap-2">
+                                {userProfile.is_subscribed ? (
+                                  <Badge className="bg-primary/10 text-primary border-primary/20 mr-2">
+                                    Subscribed
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="mr-2">Free</Badge>
+                                )}
                                 {updatingUser === userProfile.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
@@ -1301,6 +1335,19 @@ const Admin: React.FC = () => {
                                 )}
                               </div>
                             </TableCell>
+                            <TableCell className="text-right py-3 rounded-r-xl">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedUserToEdit(userProfile);
+                                  setShowEditUserDialog(true);
+                                }}
+                              >
+                                <Edit2 className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -1309,6 +1356,18 @@ const Admin: React.FC = () => {
                 )}
               </CardContent>
             </Card>
+
+            <AdminEditUserDialog
+              user={selectedUserToEdit}
+              isOpen={showEditUserDialog}
+              onClose={() => {
+                setShowEditUserDialog(false);
+                setSelectedUserToEdit(null);
+              }}
+              onUserUpdated={() => {
+                window.location.reload();
+              }}
+            />
           </div>
         )}
 
@@ -1400,7 +1459,7 @@ const Admin: React.FC = () => {
                                 ? 'default'
                                 : searchedLead.status === 'rejected'
                                   ? 'destructive'
-                                  : searchedLead.claimed_by_user_id
+                                  : searchedLead.claimed_by
                                     ? 'secondary'
                                     : 'outline'
                             }
@@ -1409,7 +1468,7 @@ const Admin: React.FC = () => {
                               <><Check size={14} className="mr-1" /> Completed</>
                             ) : searchedLead.status === 'rejected' ? (
                               <><X size={14} className="mr-1" /> Rejected</>
-                            ) : searchedLead.claimed_by_user_id ? (
+                            ) : searchedLead.claimed_by ? (
                               'Claimed'
                             ) : (
                               'Open'
@@ -1503,7 +1562,7 @@ const Admin: React.FC = () => {
                       </div>
 
                       {/* Claimed By */}
-                      {searchedLead.claimed_by_user_id && (
+                      {searchedLead.claimed_by && (
                         <div className="space-y-3">
                           <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Claimed By (Service Provider)</h4>
                           <div className="bg-background rounded-lg p-3 border space-y-2">
@@ -1612,7 +1671,7 @@ const Admin: React.FC = () => {
                                   ? 'default'
                                   : lead.status === 'rejected'
                                     ? 'destructive'
-                                    : lead.claimed_by_user_id
+                                    : lead.claimed_by
                                       ? 'secondary'
                                       : 'outline'
                               }
@@ -1625,14 +1684,14 @@ const Admin: React.FC = () => {
                                 <>
                                   <X size={14} className="mr-1" /> Rejected
                                 </>
-                              ) : lead.claimed_by_user_id ? (
+                              ) : lead.claimed_by ? (
                                 'In Progress'
                               ) : (
                                 'Open'
                               )}
                             </Badge>
                             {/* Repost Button */}
-                            {!lead.claimed_by_user_id && canRepost(lead) && (
+                            {!lead.claimed_by && canRepost(lead) && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1647,7 +1706,7 @@ const Admin: React.FC = () => {
                                 {repostLoading && repostingLead?.id === lead.id ? 'Reposting...' : 'Repost'}
                               </Button>
                             )}
-                            {!lead.claimed_by_user_id && !canRepost(lead) && (
+                            {!lead.claimed_by && !canRepost(lead) && (
                               <Button size="sm" variant="ghost" className="mt-1" disabled>
                                 <Clock size={14} className="mr-1" />
                                 Repost in {Math.ceil((6 * 60 * 60 * 1000 - (Date.now() - new Date(lead.created_at).getTime())) / (60 * 60 * 1000))}h
@@ -1671,7 +1730,9 @@ const Admin: React.FC = () => {
                           </div>
                           <div>
                             <p className="text-muted-foreground">Lead Generator</p>
-                            <p className="font-medium">{lead.lead_generator_phone || 'N/A'}</p>
+                            <p className="font-medium">
+                              {lead.created_by_user?.phone || lead.lead_generator_phone || 'N/A'}
+                            </p>
                           </div>
                         </div>
 
@@ -1679,7 +1740,7 @@ const Admin: React.FC = () => {
                           <p className="text-muted-foreground">Location</p>
                           <p className="font-medium flex items-center gap-2">
                             <MapPin size={16} />
-                            {lead.location_address || 'No location'}
+                            {lead.address || lead.location_address || 'No location'}
                           </p>
                         </div>
                       </div>
@@ -1754,7 +1815,7 @@ const Admin: React.FC = () => {
                       size="sm"
                       onClick={() => {
                         navigator.clipboard.writeText(
-                          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`
+                          `${import.meta.env.VITE_SUPABASE_URL} /functions/v1 / whatsapp - webhook`
                         );
                         toast({ title: 'Copied!', description: 'Meta webhook URL copied to clipboard' });
                       }}
@@ -1780,7 +1841,7 @@ const Admin: React.FC = () => {
                       size="sm"
                       onClick={() => {
                         navigator.clipboard.writeText(
-                          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/msg91-webhook`
+                          `${import.meta.env.VITE_SUPABASE_URL} /functions/v1 / msg91 - webhook`
                         );
                         toast({ title: 'Copied!', description: 'MSG91 webhook URL copied to clipboard' });
                       }}
@@ -1957,8 +2018,8 @@ const Admin: React.FC = () => {
                         .map((message) => (
                           <div
                             key={message.id}
-                            className={`p-4 border rounded-lg transition-colors ${selectedMessages.has(message.id) ? 'bg-primary/10 border-primary' : 'bg-muted/50'
-                              }`}
+                            className={`p - 4 border rounded - lg transition - colors ${selectedMessages.has(message.id) ? 'bg-primary/10 border-primary' : 'bg-muted/50'
+                              } `}
                           >
                             <div className="flex items-start gap-3">
                               <Checkbox
@@ -2144,8 +2205,8 @@ const Admin: React.FC = () => {
                       .map((lead) => (
                         <div
                           key={lead.id}
-                          className={`flex items-center gap-3 p-4 border rounded-lg transition-colors ${selectedLeads.has(lead.id) ? 'bg-primary/10 border-primary' : 'bg-muted/50'
-                            }`}
+                          className={`flex items - center gap - 3 p - 4 border rounded - lg transition - colors ${selectedLeads.has(lead.id) ? 'bg-primary/10 border-primary' : 'bg-muted/50'
+                            } `}
                         >
                           {/* Checkbox */}
                           <Checkbox
@@ -2276,7 +2337,7 @@ const Admin: React.FC = () => {
                     onClick={() => setActiveTab('whatsapp')}
                     disabled={loadingWhatsapp}
                   >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${loadingWhatsapp ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h - 4 w - 4 mr - 1 ${loadingWhatsapp ? 'animate-spin' : ''} `} />
                     Refresh
                   </Button>
                 </div>
@@ -2396,7 +2457,7 @@ const Admin: React.FC = () => {
         onApprove={approveWithEditedData}
         onReject={rejectWhatsAppMessage}
       />
-    </div>
+    </div >
   );
 };
 

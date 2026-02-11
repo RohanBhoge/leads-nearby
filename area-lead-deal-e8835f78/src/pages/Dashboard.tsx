@@ -12,7 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface Lead {
   id: string;
-  service_type: string;
+  categories: { name: string } | null;
   location_address: string | null;
   created_at: string;
   distance?: number;
@@ -44,9 +44,9 @@ const Dashboard: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('leads')
-        .select('id, service_type, location_address, location_lat, location_long, created_at')
+        .select('id, categories(name), location_address, location_lat, location_long, created_at')
         .eq('status', 'open')
-        .neq('created_by_user_id', user.id)
+        .neq('created_by', user.id)
         .order('created_at', { ascending: false })
         .limit(4);
 
@@ -161,8 +161,8 @@ const Dashboard: React.FC = () => {
 
           {/* Subscription Badge */}
           <div className={`inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full text-sm font-medium ${profile?.is_subscribed
-              ? 'bg-primary/10 text-primary'
-              : 'bg-secondary/10 text-secondary'
+            ? 'bg-primary/10 text-primary'
+            : 'bg-secondary/10 text-secondary'
             }`}>
             <Star size={16} className={profile?.is_subscribed ? 'fill-primary' : ''} />
             <span>{profile?.is_subscribed ? t('premiumPlan') : t('freePlan')}</span>
@@ -247,8 +247,10 @@ const Dashboard: React.FC = () => {
                     animationDelay: `${index * 0.1}s`,
                   }}
                 >
-                  {/* Blur overlay */}
-                  <div className="absolute inset-0 backdrop-blur-[2px] bg-background/30 z-10 pointer-events-none" />
+                  {/* Blur overlay - Only for non-subscribed users */}
+                  {!profile?.is_subscribed && (
+                    <div className="absolute inset-0 backdrop-blur-[2px] bg-background/30 z-10 pointer-events-none" />
+                  )}
 
                   <div className="relative z-0">
                     <div className="flex items-start justify-between mb-2">
@@ -257,7 +259,7 @@ const Dashboard: React.FC = () => {
                           <PlusCircle className="text-primary" size={16} />
                         </div>
                         <span className="font-semibold text-foreground">
-                          {formatServiceType(lead.service_type)}
+                          {lead.categories?.name || 'Service'}
                         </span>
                       </div>
                       {lead.distance !== undefined && (

@@ -1,97 +1,103 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, LogOut, Star, Loader2, Save } from 'lucide-react';
+import { User, LogOut, Star, MapPin, Phone, Mail, Briefcase, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
+import MapPreview from '@/components/MapPreview';
+import SubscriptionTimer from '@/components/SubscriptionTimer';
+import { supabase } from '@/integrations/supabase/client';
 import LocationPicker from '@/components/LocationPicker';
 import RadiusSlider from '@/components/RadiusSlider';
-import SubscriptionTimer from '@/components/SubscriptionTimer';
 import { useToast } from '@/hooks/use-toast';
-
-import { SERVICE_TYPES, ServiceTypeValue, DEFAULT_SERVICE_TYPE } from '@/constants/serviceTypes';
+import { Edit2, Save, X, User as UserIcon } from 'lucide-react';
+import EditProfileDialog from '@/components/EditProfileDialog';
 
 const Profile: React.FC = () => {
-  const { user, profile, signOut, updateProfile, loading: authLoading } = useAuth();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
   const { t } = useLanguage();
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [serviceType, setServiceType] = useState<ServiceTypeValue>(DEFAULT_SERVICE_TYPE);
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [radius, setRadius] = useState(10);
+  const [isEditingLocation, setIsEditingLocation] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editLat, setEditLat] = useState<number | null>(null);
+  const [editLong, setEditLong] = useState<number | null>(null);
+  const [editRadius, setEditRadius] = useState<number>(50);
   const [saving, setSaving] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
 
-  /* Auth check handled by ProtectedRoute */
-  /*
+  const [categoryName, setCategoryName] = useState<string>('');
+  const [subCategoryName, setSubCategoryName] = useState<string>('');
+
+  // Fetch category and subcategory names
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
-  */
+    const fetchCategoryNames = async () => {
+      if (profile?.category_id) {
+        const { data } = await supabase
+          .from('categories')
+          .select('name')
+          .eq('id', profile.category_id)
+          .single();
 
-  useEffect(() => {
-    if (profile) {
-      setName(profile.name || '');
-      setPhone(profile.phone || '');
-      // Cast safely, ensuring we fallback to default if the DB value is invalid or old
-      const dbServiceType = profile.service_type as ServiceTypeValue;
-      const isValid = SERVICE_TYPES.some(t => t.value === dbServiceType);
-      setServiceType(isValid ? dbServiceType : DEFAULT_SERVICE_TYPE);
+        if (data) setCategoryName(data.name);
+      }
 
-      setLatitude(profile.location_lat);
-      setLongitude(profile.location_long);
-      setRadius(profile.service_radius_km || 10);
-    }
+      if (profile?.sub_category_id) {
+        const { data } = await supabase
+          .from('sub_categories')
+          .select('name')
+          .eq('id', profile.sub_category_id)
+          .single();
+
+        if (data) setSubCategoryName(data.name);
+      }
+    };
+
+    fetchCategoryNames();
   }, [profile]);
-
-  const handleLocationChange = (lat: number, lng: number) => {
-    setLatitude(lat);
-    setLongitude(lng);
-    setHasChanges(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-
-    const { error } = await updateProfile({
-      name,
-      phone,
-      service_type: serviceType,
-      location_lat: latitude,
-      location_long: longitude,
-      service_radius_km: radius,
-    });
-
-    setSaving(false);
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: t('error'),
-        description: 'Failed to save profile',
-      });
-    } else {
-      toast({
-        title: t('success'),
-        description: 'Profile saved successfully',
-      });
-      setHasChanges(false);
-    }
-  };
 
   const handleLogout = async () => {
     await signOut();
     navigate('/');
+  };
+
+  const handleSaveLocation = async () => {
+    if (!user || !editLat || !editLong) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          location_lat: editLat,
+          location_long: editLong,
+          service_radius_km: editRadius
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Location Updated",
+        description: "Your location has been successfully updated.",
+      });
+
+      setIsEditingLocation(false);
+      // Refresh user profile logic handled by AuthContext but might need manual re-fetch if not reactive
+      window.location.reload(); // Simple way to ensure context updates for now
+    } catch (error) {
+      console.error('Error updating location:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update location. Please try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (authLoading) {
@@ -107,21 +113,53 @@ const Profile: React.FC = () => {
       <Header title={t('profile')} />
 
       <main className="px-4 py-6 max-w-md mx-auto space-y-6">
-        {/* Avatar & Subscription */}
+        {/* User Info Card */}
         <div className="bg-card border border-border rounded-2xl p-6 text-center animate-slide-up">
-          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User size={40} className="text-primary" />
+          <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-2 border-primary/20">
+            {profile?.profile_image ? (
+              <img
+                src={profile.profile_image}
+                alt={profile.name || 'User'}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User size={40} className="text-primary" />
+            )}
           </div>
-          <h2 className="text-xl font-bold text-foreground">{profile?.name || 'Agent'}</h2>
-          <p className="text-sm text-muted-foreground">{user?.email}</p>
+          <h2 className="text-xl font-bold text-foreground">{profile?.name || profile?.user_name || 'User'}</h2>
+          <p className="text-sm text-muted-foreground mt-1">{user?.email}</p>
 
-          <div className={`inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-full text-sm font-medium ${profile?.is_subscribed
-            ? 'bg-primary/10 text-primary'
-            : 'bg-secondary/10 text-secondary'
-            }`}>
-            <Star size={16} className={profile?.is_subscribed ? 'fill-primary' : ''} />
-            <span>{profile?.is_subscribed ? t('premiumPlan') : t('freePlan')}</span>
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${profile?.is_subscribed ? 'bg-primary/10 text-primary' : 'bg-secondary/10 text-secondary'
+              }`}>
+              <Star size={16} className={profile?.is_subscribed ? 'fill-primary' : ''} />
+              <span>{profile?.is_subscribed ? t('premiumPlan') : t('freePlan')}</span>
+            </div>
+
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-green-100 text-green-700">
+              <Briefcase size={16} />
+              <span>{profile?.credit_balance || 0} Credits</span>
+            </div>
           </div>
+
+          {profile?.referral_code && (
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center justify-between gap-2 border border-border">
+              <div className="text-left">
+                <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Referral Code</p>
+                <p className="font-mono text-lg font-bold text-primary">{profile.referral_code}</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard.writeText(profile.referral_code || '');
+                  toast({ title: 'Copied', description: 'Referral code copied to clipboard!' });
+                }}
+              >
+                Copy
+              </Button>
+            </div>
+          )}
 
           {/* Subscription Timer */}
           <div className="mt-4">
@@ -142,113 +180,163 @@ const Profile: React.FC = () => {
           </Button>
         </div>
 
-        {/* Profile Form */}
-        <div className="space-y-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              {t('name')}
-            </label>
-            <Input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setHasChanges(true);
-              }}
-              className="h-14 text-base rounded-xl"
-            />
+
+        {/* User Details Card */}
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-4 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <h3 className="text-lg font-semibold text-foreground mb-4">Account Details</h3>
+
+          {/* Phone */}
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
+            <Phone size={20} className="text-primary" />
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground">Phone Number</p>
+              <p className="text-sm font-medium text-foreground">
+                {profile?.phone || <span className="text-muted-foreground italic">Not provided</span>}
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              {t('phone')}
-            </label>
-            <Input
-              type="tel"
-              value={phone}
-              onChange={(e) => {
-                setPhone(e.target.value);
-                setHasChanges(true);
-              }}
-              className="h-14 text-base rounded-xl"
-              placeholder="Enter mobile number"
-            />
+          {/* Email */}
+          <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
+            <Mail size={20} className="text-primary" />
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground">Email</p>
+              <p className="text-sm font-medium text-foreground">{user?.email}</p>
+            </div>
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              {t('serviceType')}
-            </label>
-            <Select
-              value={serviceType}
-              onValueChange={(v) => {
-                setServiceType(v as ServiceTypeValue);
-                setHasChanges(true);
-              }}
-            >
-              <SelectTrigger className="h-14 text-base rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SERVICE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Location Section */}
-        <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <LocationPicker
-            latitude={latitude}
-            longitude={longitude}
-            radius={radius}
-            onLocationChange={handleLocationChange}
-          />
-        </div>
-
-        {/* Radius Slider */}
-        {latitude && longitude && (
-          <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-            <RadiusSlider
-              value={radius}
-              onChange={(v) => {
-                setRadius(v);
-                setHasChanges(true);
-              }}
-              min={1}
-              max={50}
-            />
-          </div>
-        )}
-
-
-        {/* Save Button */}
-        {hasChanges && (
-          <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
-            <Button
-              variant="hero"
-              className="w-full"
-              onClick={handleSave}
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="animate-spin" size={20} />
+          {/* Category & Subcategory */}
+          <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
+            <Briefcase size={20} className="text-primary mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground mb-2">Service Category</p>
+              {categoryName || subCategoryName ? (
+                <div className="flex flex-wrap gap-2">
+                  {categoryName && (
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                      {categoryName}
+                    </span>
+                  )}
+                  {subCategoryName && (
+                    <span className="px-3 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded-full">
+                      {subCategoryName}
+                    </span>
+                  )}
+                </div>
               ) : (
-                <>
-                  <Save size={20} />
-                  <span>{t('saveProfile')}</span>
-                </>
+                <p className="text-sm text-muted-foreground italic">No category selected</p>
               )}
-            </Button>
+            </div>
           </div>
-        )}
+        </div>
 
-        {/* Logout */}
-        <div className="pt-4 animate-slide-up" style={{ animationDelay: '0.5s' }}>
+        {/* Location Card */}
+        <div className="bg-card border border-border rounded-2xl p-6 space-y-3 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <MapPin size={20} className="text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">Registered Location</h3>
+            </div>
+            {!isEditingLocation && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setEditLat(profile?.location_lat || 18.5204);
+                  setEditLong(profile?.location_long || 73.8567);
+                  setEditRadius(profile?.service_radius_km || 10);
+                  setIsEditingLocation(true);
+                }}
+              >
+                <Edit2 size={16} />
+              </Button>
+            )}
+          </div>
+
+          {isEditingLocation ? (
+            <div className="space-y-4">
+              <div className="h-64 rounded-xl overflow-hidden border border-border">
+                <LocationPicker
+                  onLocationSelect={(lat, lng) => {
+                    setEditLat(lat);
+                    setEditLong(lng);
+                  }}
+                  initialLat={editLat || 18.5204}
+                  initialLng={editLong || 73.8567}
+                />
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Service Radius: {editRadius} km</p>
+                <RadiusSlider
+                  value={[editRadius]}
+                  onValueChange={(val) => setEditRadius(val[0])}
+                  max={100}
+                  step={1}
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setIsEditingLocation(false)}
+                  disabled={saving}
+                >
+                  <X size={16} className="mr-2" /> Cancel
+                </Button>
+                <Button
+                  variant="default" // Changed from "hero" to "default" as "hero" might not be defined in Button variants yet or for safety
+                  className="flex-1 bg-primary text-primary-foreground"
+                  onClick={handleSaveLocation}
+                  disabled={saving}
+                >
+                  {saving ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16} className="mr-2" /> Save Location</>}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            profile?.location_lat && profile?.location_long ? (
+              <>
+                <MapPreview
+                  latitude={profile.location_lat}
+                  longitude={profile.location_long}
+                  onLocationChange={() => { }} // No-op, read-only
+                  draggable={false}
+                />
+
+                <p className="text-xs text-muted-foreground text-center mt-2">
+                  {profile.location_lat.toFixed(6)}, {profile.location_long.toFixed(6)}
+                  <br />
+                  Radius: {profile.service_radius_km} km
+                </p>
+              </>
+            ) : (
+              <div className="bg-muted/30 rounded-xl p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => {
+                  setEditLat(18.5204);
+                  setEditLong(73.8567);
+                  setIsEditingLocation(true);
+                }}
+              >
+                <MapPin size={48} className="text-muted-foreground mx-auto mb-3 opacity-30" />
+                <p className="text-sm text-muted-foreground">No location registered</p>
+                <p className="text-xs text-primary font-medium mt-1">Tap to set location</p>
+              </div>
+            )
+          )}
+        </div>
+
+
+        {/* Logout Button */}
+        <div className="pt-4 animate-slide-up space-y-3" style={{ animationDelay: '0.3s' }}>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => setShowEditProfile(true)}
+          >
+            <UserIcon size={18} className="mr-2" />
+            <span>Edit Profile</span>
+          </Button>
+
           <Button
             variant="outline"
             className="w-full text-destructive hover:text-destructive"
@@ -259,6 +347,11 @@ const Profile: React.FC = () => {
           </Button>
         </div>
       </main>
+
+      <EditProfileDialog
+        isOpen={showEditProfile}
+        onClose={() => setShowEditProfile(false)}
+      />
 
       <BottomNav />
     </div>

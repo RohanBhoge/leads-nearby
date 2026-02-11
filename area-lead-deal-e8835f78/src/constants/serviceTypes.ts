@@ -1,17 +1,20 @@
-export const SERVICE_TYPES = [
-    { value: 'rent_agreement', label: 'Rent Agreement' },
-    { value: 'Leads Near By_work', label: 'Leads Near By Work' },
-    { value: 'income_certificate', label: 'Income Certificate' },
-    { value: 'aadhar_work', label: 'Aadhar Work' },
-    { value: 'maha_e_seva_work', label: 'Maharashtra E Seva Work' },
-    { value: 'other', label: 'Other' },
-] as const;
+// Temporary helper file to assist with service type to category migration
+// This file provides stubs for old service type functions to prevent compile errors
+// TODO: Remove this file once all components are migrated to use categories
 
-export type ServiceTypeValue = typeof SERVICE_TYPES[number]['value'];
-
-export const DEFAULT_SERVICE_TYPE = 'rent_agreement';
-
-export const getServiceLabel = (value: string): string => {
-    const service = SERVICE_TYPES.find(s => s.value === value);
-    return service ? service.label : 'Other';
+export const getServiceLabel = (serviceType: string | null): string => {
+    if (!serviceType) return 'General Service';
+    // Convert snake_case to Title Case
+    return serviceType
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
 };
+
+// Temporary: Empty array to prevent errors
+// Components should fetch categories from database instead
+export const SERVICE_TYPES: { value: string; label: string }[] = [];
+
+export const DEFAULT_SERVICE_TYPE = '';
+
+export type ServiceTypeValue = string;

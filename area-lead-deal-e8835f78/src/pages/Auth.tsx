@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, ArrowRight, Loader2, Phone, Layers, Grid, Eye, EyeOff } from 'lucide-react';
+import LocationPicker from '@/components/LocationPicker';
+import RadiusSlider from '@/components/RadiusSlider';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
@@ -44,6 +46,10 @@ const Auth: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [radius, setRadius] = useState(10);
+  const [referralCode, setReferralCode] = useState('');
 
   const { signIn, signUp, user } = useAuth();
   const { t } = useLanguage();
@@ -169,7 +175,19 @@ const Auth: React.FC = () => {
           navigate('/dashboard');
         }
       } else {
-        const { error } = await signUp(email, password, name, phone, categoryId || null, subCategoryId || null);
+        const { error } = await signUp(
+          email,
+          password,
+          name,
+          phone,
+          categoryId || null,
+          subCategoryId || null,
+          'user',
+          latitude,
+          longitude,
+          radius,
+          referralCode
+        );
         if (error) {
           if (error.message.includes('already registered')) {
             toast({
@@ -187,9 +205,9 @@ const Auth: React.FC = () => {
         } else {
           toast({
             title: t('success'),
-            description: 'Account created! Please set up your profile.',
+            description: 'Account created successfully!',
           });
-          navigate('/onboarding');
+          navigate('/dashboard');
         }
       }
     } finally {
@@ -315,6 +333,25 @@ const Auth: React.FC = () => {
                       </Select>
                     </div>
                   </div>
+
+                  {/* Location Section - Only shown if signup */}
+                  {!isLogin && (
+                    <div className="space-y-4 pt-4">
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-2 block">
+                          Your Service Location
+                        </label>
+                        <LocationPicker
+                          latitude={latitude}
+                          longitude={longitude}
+                          onLocationChange={(lat, lng) => {
+                            setLatitude(lat);
+                            setLongitude(lng);
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -376,9 +413,23 @@ const Auth: React.FC = () => {
                 </div>
               )}
 
+              {!isLogin && (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Referral Code (Optional)"
+                      value={referralCode}
+                      onChange={(e) => setReferralCode(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Privacy Policy Checkbox */}
               {!isLogin && (
-                <div className="flex items-start gap-3 pt-2">
+                <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id="privacy"

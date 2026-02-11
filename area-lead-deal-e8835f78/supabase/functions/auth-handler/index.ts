@@ -17,9 +17,12 @@ serve(async (req) => {
             Deno.env.get('SUPABASE_URL') ?? '',
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '' // Use Service Role Key here
         )
+        if (!supabaseAdmin) {
+            throw new Error('Failed to create Supabase Admin client')
+        }
 
         const payload = await req.json()
-        const { action, email, phone, password, name, category_id, sub_category_id, role } = payload
+        const { action, email, phone, password, name, category_id, sub_category_id, role, location_lat, location_long, service_radius_km } = payload
 
         // --- REGISTER ---
         if (action === 'register') {
@@ -39,9 +42,13 @@ serve(async (req) => {
                     phone,
                     category_id,
                     sub_category_id,
-                    role: role || 'user'
+                    role: role || 'user',
+                    location_lat,
+                    location_long,
+                    service_radius_km
                 }
             })
+
 
             if (error) throw error
 
@@ -53,11 +60,6 @@ serve(async (req) => {
 
         // --- LOGIN ---
         if (action === 'login') {
-            // Login still uses standard Client (non-admin) usually, but we can reuse Admin for signIn 
-            // OR re-initialize a standard client if we want to respect RLS during login (though auth endpoint just returns token).
-            // For simplicity/safety, we'll stick to the Admin client here just for the Auth call, 
-            // but strictly speaking, login doesn't require admin. 
-            // Let's use the standard flow for Login to ensure the returned token has correct user scope, not admin scope.
 
             const supabaseClient = createClient(
                 Deno.env.get('SUPABASE_URL') ?? '',
