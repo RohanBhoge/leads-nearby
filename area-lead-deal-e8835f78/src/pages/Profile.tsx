@@ -257,21 +257,20 @@ const Profile: React.FC = () => {
             <div className="space-y-4">
               <div className="h-64 rounded-xl overflow-hidden border border-border">
                 <LocationPicker
-                  onLocationSelect={(lat, lng) => {
+                  latitude={editLat || 18.5204}
+                  longitude={editLong || 73.8567}
+                  onLocationChange={(lat, lng) => {
                     setEditLat(lat);
                     setEditLong(lng);
                   }}
-                  initialLat={editLat || 18.5204}
-                  initialLng={editLong || 73.8567}
                 />
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Service Radius: {editRadius} km</p>
                 <RadiusSlider
-                  value={[editRadius]}
-                  onValueChange={(val) => setEditRadius(val[0])}
+                  value={editRadius}
+                  onChange={setEditRadius}
                   max={100}
-                  step={1}
                 />
               </div>
               <div className="flex gap-2 pt-2">

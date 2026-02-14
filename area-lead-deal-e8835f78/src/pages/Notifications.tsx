@@ -71,7 +71,7 @@ const Notifications: React.FC = () => {
     if (!user) return;
 
     setLoading(true);
-    
+
     const { data, error } = await supabase
       .from('notifications')
       .select('*')
@@ -82,9 +82,18 @@ const Notifications: React.FC = () => {
     if (error) {
       console.error('Error fetching notifications:', error);
     } else {
-      setNotifications(data || []);
+      const safeNotifications = (data || []).map((n: any) => ({
+        ...n,
+        type: n.type || 'info',
+        title: n.title || 'Notification',
+        body: n.body || '',
+        read: n.read || false,
+        created_at: n.created_at || new Date().toISOString(),
+        data: n.data || {},
+      }));
+      setNotifications(safeNotifications);
     }
-    
+
     setLoading(false);
   };
 
@@ -128,8 +137,8 @@ const Notifications: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <Header 
-        title="Notifications" 
+      <Header
+        title="Notifications"
         showBack
         rightElement={
           unreadCount > 0 ? (
@@ -159,11 +168,10 @@ const Notifications: React.FC = () => {
               <button
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
-                className={`w-full text-left bg-card border rounded-xl p-4 transition-colors ${
-                  notification.read
+                className={`w-full text-left bg-card border rounded-xl p-4 transition-colors ${notification.read
                     ? 'border-border'
                     : 'border-primary bg-primary/5'
-                }`}
+                  }`}
               >
                 <div className="flex gap-3">
                   <div className="shrink-0 mt-0.5">
@@ -171,9 +179,8 @@ const Notifications: React.FC = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <h4 className={`text-sm font-semibold truncate ${
-                        notification.read ? 'text-foreground' : 'text-primary'
-                      }`}>
+                      <h4 className={`text-sm font-semibold truncate ${notification.read ? 'text-foreground' : 'text-primary'
+                        }`}>
                         {notification.title}
                       </h4>
                       {!notification.read && (

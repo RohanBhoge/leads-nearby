@@ -15,9 +15,8 @@ interface UserProfile {
   id: string;
   name: string;
   phone: string | null;
-  avatar_url: string | null;
+  profile_image: string | null;
   service_type: string | null;
-  service_radius_km: number | null;
   location_lat: number | null;
   location_long: number | null;
 }
@@ -56,12 +55,12 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, name, phone, avatar_url, service_type, service_radius_km, location_lat, location_long')
+        .select('id, name, phone, profile_image, service_type, location_lat, location_long')
         .eq('id', userId)
         .single();
 
       if (profileError) throw profileError;
-      setProfile(profileData);
+      setProfile(profileData ? { ...profileData, name: profileData.name || 'Unknown' } : null);
 
       // Fetch ratings
       const { data: ratingsData, error: ratingsError } = await supabase
@@ -72,7 +71,11 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
         .limit(10);
 
       if (ratingsError) throw ratingsError;
-      setRatings(ratingsData || []);
+      const safeRatings = (ratingsData || []).map((r: any) => ({
+        ...r,
+        created_at: r.created_at || new Date().toISOString()
+      }));
+      setRatings(safeRatings);
 
       // Calculate average rating
       if (ratingsData && ratingsData.length > 0) {
@@ -112,9 +115,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {/* Profile Header */}
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                {profile.avatar_url ? (
+                {profile.profile_image ? (
                   <img
-                    src={profile.avatar_url}
+                    src={profile.profile_image}
                     alt={profile.name}
                     className="w-full h-full rounded-full object-cover"
                   />
@@ -149,13 +152,6 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
               </div>
             </div>
 
-            {/* Service Radius */}
-            {profile.service_radius_km && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin size={16} />
-                <span>Serves within {profile.service_radius_km} km radius</span>
-              </div>
-            )}
 
             {/* Recent Reviews */}
             {ratings.length > 0 && (

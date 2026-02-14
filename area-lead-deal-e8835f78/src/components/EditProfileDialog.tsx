@@ -52,7 +52,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ isOpen, onClose }
             if (cats) setCategories(cats);
 
             const { data: subCats } = await supabase.from('sub_categories').select('id, name, category_id').order('name');
-            if (subCats) setSubCategories(subCats);
+            if (subCats) setSubCategories(subCats as any);
         };
         if (isOpen) {
             fetchCategories();

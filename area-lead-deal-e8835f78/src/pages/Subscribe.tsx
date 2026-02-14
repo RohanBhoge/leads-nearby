@@ -199,7 +199,8 @@ const Subscribe: React.FC = () => {
 
         if (error) throw error;
         // RPC returns JSONB, check success field
-        if (!data || !data.success) throw new Error(data?.error || 'Failed to purchase with credits');
+        const result = data as any;
+        if (!result || !result.success) throw new Error(result?.error || 'Failed to purchase with credits');
 
         toast({
           title: '🎉 Subscription Activated!',
@@ -259,7 +260,8 @@ const Subscribe: React.FC = () => {
             });
 
             if (completeError) throw completeError;
-            if (!completeData.success) throw new Error(completeData.error || 'Failed to complete payment');
+            const result = completeData as any;
+            if (!result.success) throw new Error(result.error || 'Failed to complete payment');
 
             toast({ title: '🎉 Subscription Activated!', description: 'Payment successful.' });
             await refreshProfile();

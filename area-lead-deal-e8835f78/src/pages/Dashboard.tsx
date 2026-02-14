@@ -52,7 +52,12 @@ const Dashboard: React.FC = () => {
 
       if (error) throw error;
 
-      let leadsWithDistance: Lead[] = data || [];
+      let leadsWithDistance: Lead[] = (data || []).map((l: any) => ({
+        ...l,
+        created_at: l.created_at || new Date().toISOString(),
+        categories: l.categories || null,
+        location_address: l.location_address || null
+      }));
 
       if (profile?.location_lat && profile?.location_long) {
         leadsWithDistance = leadsWithDistance.map((lead: any) => ({

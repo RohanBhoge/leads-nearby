@@ -70,7 +70,7 @@ const Auth: React.FC = () => {
       else console.log("SubCategories fetched:", subCatData);
 
       if (catData) setCategories(catData);
-      if (subCatData) setSubCategories(subCatData);
+      if (subCatData) setSubCategories(subCatData as any);
     }
     fetchCategories();
   }, []);

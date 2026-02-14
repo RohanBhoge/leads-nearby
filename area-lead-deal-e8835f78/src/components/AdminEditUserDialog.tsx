@@ -20,8 +20,8 @@ interface UserProfile {
     subscription_expires_at: string | null;
     category_id: string | null;
     sub_category_id: string | null;
-    categories: { name: string, id: string } | null;
-    sub_categories: { name: string, id: string } | null;
+    categories: { name: string, id?: string } | null;
+    sub_categories: { name: string, id?: string } | null;
 }
 
 interface AdminEditUserDialogProps {
@@ -55,7 +55,7 @@ const AdminEditUserDialog: React.FC<AdminEditUserDialogProps> = ({ user, isOpen,
             if (cats) setCategories(cats);
 
             const { data: subCats } = await supabase.from('sub_categories').select('id, name, category_id');
-            if (subCats) setSubCategories(subCats);
+            if (subCats) setSubCategories(subCats as any);
         };
         fetchCategories();
     }, []);
@@ -233,9 +233,9 @@ const AdminEditUserDialog: React.FC<AdminEditUserDialogProps> = ({ user, isOpen,
                         </div>
                         <div className="h-[200px] w-full rounded-md border overflow-hidden">
                             <LocationPicker
-                                initialLat={formData.location_lat || 20.5937}
-                                initialLng={formData.location_long || 78.9629}
-                                onLocationSelect={handleLocationSelect}
+                                latitude={formData.location_lat || 20.5937}
+                                longitude={formData.location_long || 78.9629}
+                                onLocationChange={handleLocationSelect}
                             />
                         </div>
                     </div>

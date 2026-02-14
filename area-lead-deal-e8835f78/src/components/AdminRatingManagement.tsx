@@ -94,6 +94,7 @@ const AdminRatingManagement: React.FC = () => {
         // Calculate average rating for each user
         const ratingMap: Record<string, { total: number; count: number }> = {};
         ratings?.forEach((r) => {
+          if (!r.rated_user_id) return;
           if (!ratingMap[r.rated_user_id]) {
             ratingMap[r.rated_user_id] = { total: 0, count: 0 };
           }
@@ -104,6 +105,7 @@ const AdminRatingManagement: React.FC = () => {
         // Combine profiles with ratings
         const usersWithRatings: UserWithRating[] = (profiles || []).map((p) => ({
           ...p,
+          name: p.name || 'Unknown',
           average_rating: ratingMap[p.id]
             ? ratingMap[p.id].total / ratingMap[p.id].count
             : 0,
@@ -170,7 +172,7 @@ const AdminRatingManagement: React.FC = () => {
   // Send warning to user
   const sendWarning = async () => {
     if (!selectedUser || !warningMessage.trim()) return;
-    
+
     setSendingWarning(true);
     try {
       await supabase.from('notifications').insert({
@@ -212,7 +214,7 @@ const AdminRatingManagement: React.FC = () => {
       if (error) throw error;
 
       setUsers((prev) => prev.filter((u) => u.id !== userId));
-      
+
       toast({
         title: 'User Deleted',
         description: 'User account has been removed',
@@ -232,7 +234,7 @@ const AdminRatingManagement: React.FC = () => {
   // Filter users
   const filteredUsers = users.filter((user) => {
     // Search filter
-    const matchesSearch = 
+    const matchesSearch =
       !searchQuery.trim() ||
       user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.phone?.includes(searchQuery);
@@ -585,7 +587,7 @@ const AdminRatingManagement: React.FC = () => {
                 rows={4}
               />
             </div>
-            
+
             <div className="bg-muted rounded-lg p-3 text-sm">
               <p className="font-medium mb-1">Quick Templates:</p>
               <div className="space-y-1">

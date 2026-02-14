@@ -41,8 +41,8 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Google Services Refs
-  const autocompleteService = useRef<google.maps.places.AutocompleteService | null>(null);
-  const geocoder = useRef<google.maps.Geocoder | null>(null);
+  const autocompleteService = useRef<any | null>(null);
+  const geocoder = useRef<any | null>(null);
 
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
@@ -87,7 +87,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
     setSearching(true);
     try {
-      const request: google.maps.places.AutocompletionRequest = {
+      const request: any = {
         input: query,
         componentRestrictions: { country: 'in' }, // Focus on India
       };
@@ -108,12 +108,12 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         }
       }, 5000);
 
-      autocompleteService.current.getPlacePredictions(request, (predictions, status) => {
+      autocompleteService.current.getPlacePredictions(request, (predictions: any, status: any) => {
         clearTimeout(timeoutId);
         console.log('Suggestions response:', { status, predictionsCount: predictions?.length });
 
-        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-          const formatted: Suggestion[] = predictions.map(p => ({
+        if (status === (window as any).google.maps.places.PlacesServiceStatus.OK && predictions) {
+          const formatted: Suggestion[] = predictions.map((p: any) => ({
             id: p.place_id,
             place_name: p.description,
             place_id: p.place_id
@@ -141,7 +141,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
     console.log('Attempting manual geocoding for:', searchQuery);
 
-    geocoder.current.geocode({ address: searchQuery }, (results, status) => {
+    geocoder.current.geocode({ address: searchQuery }, (results: any, status: any) => {
       setSearching(false);
       console.log('Geocoding response:', { status, results });
 
@@ -196,7 +196,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     setShowSuggestions(false);
 
     // Get Lat/Lng from Place ID using Geocoder
-    geocoder.current.geocode({ placeId: suggestion.place_id }, (results, status) => {
+    geocoder.current.geocode({ placeId: suggestion.place_id }, (results: any, status: any) => {
       if (status === 'OK' && results && results[0]) {
         const lat = results[0].geometry.location.lat();
         const lng = results[0].geometry.location.lng();
@@ -239,7 +239,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
 
         // Reverse Geocode
         if (geocoder.current) {
-          geocoder.current.geocode({ location: { lat, lng } }, (results, status) => {
+          geocoder.current.geocode({ location: { lat, lng } }, (results: any, status: any) => {
             if (status === 'OK' && results && results[0]) {
               const addr = results[0].formatted_address;
               setAddress(addr);
@@ -277,7 +277,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const handleMapLocationChange = async (lat: number, lng: number) => {
     // Just update lat/lng first to make UI snappy
     if (geocoder.current) {
-      geocoder.current.geocode({ location: { lat, lng } }, (results, status) => {
+      geocoder.current.geocode({ location: { lat, lng } }, (results: any, status: any) => {
         if (status === 'OK' && results && results[0]) {
           const addr = results[0].formatted_address;
           setAddress(addr);
@@ -302,7 +302,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   // Initial reverse geocode if lat/lng provided but no address
   useEffect(() => {
     if (latitude && longitude && !address && geocoder.current && scriptLoaded) {
-      geocoder.current.geocode({ location: { lat: latitude, lng: longitude } }, (results, status) => {
+      geocoder.current.geocode({ location: { lat: latitude, lng: longitude } }, (results: any, status: any) => {
         if (status === 'OK' && results && results[0]) {
           setAddress(results[0].formatted_address);
         } else {

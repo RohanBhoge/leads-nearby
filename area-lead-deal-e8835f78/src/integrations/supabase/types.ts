@@ -34,6 +34,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          key: string
+          value: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key: string
+          value?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key?: string
+          value?: Json | null
+        }
+        Relationships: []
+      }
+      community_messages: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       categories: {
         Row: {
           created_at: string | null
@@ -113,6 +163,7 @@ export type Database = {
           sub_category_id: string | null
           title: string | null
           lead_code: string | null
+          service_type: string | null
           location_address: string | null
           customer_name: string | null
           customer_phone: string
@@ -211,6 +262,82 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string | null
+          data: Json | null
+          id: string
+          read: boolean | null
+          title: string | null
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          read?: boolean | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string | null
+          data?: Json | null
+          id?: string
+          read?: boolean | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          amount?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          amount?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       profiles: {
         Row: {
           bio: string | null
@@ -223,6 +350,12 @@ export type Database = {
           location_long: number | null
           phone: string | null
           profile_image: string | null
+          name: string | null
+          service_type: string | null
+          is_subscribed: boolean | null
+          subscription_expires_at: string | null
+          is_suspended: boolean | null
+          is_approved: boolean | null
           role: Database["public"]["Enums"]["user_role"] | null
           sub_category_id: string | null
           updated_at: string | null
@@ -239,6 +372,12 @@ export type Database = {
           location_long?: number | null
           phone?: string | null
           profile_image?: string | null
+          name?: string | null
+          service_type?: string | null
+          is_subscribed?: boolean | null
+          subscription_expires_at?: string | null
+          is_suspended?: boolean | null
+          is_approved?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           sub_category_id?: string | null
           updated_at?: string | null
@@ -255,6 +394,12 @@ export type Database = {
           location_long?: number | null
           phone?: string | null
           profile_image?: string | null
+          name?: string | null
+          service_type?: string | null
+          is_subscribed?: boolean | null
+          subscription_expires_at?: string | null
+          is_suspended?: boolean | null
+          is_approved?: boolean | null
           role?: Database["public"]["Enums"]["user_role"] | null
           sub_category_id?: string | null
           updated_at?: string | null
@@ -275,6 +420,90 @@ export type Database = {
             referencedRelation: "sub_categories"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      push_tokens: {
+        Row: {
+          created_at: string | null
+          id: string
+          platform: string | null
+          token: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          platform?: string | null
+          token: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          platform?: string | null
+          token?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ratings: {
+        Row: {
+          comment: string | null
+          created_at: string | null
+          id: string
+          lead_id: string | null
+          rated_user_id: string | null
+          rating: number
+          rater_id: string | null
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          rated_user_id?: string | null
+          rating: number
+          rater_id?: string | null
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string | null
+          id?: string
+          lead_id?: string | null
+          rated_user_id?: string | null
+          rating?: number
+          rater_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_rated_user_id_fkey"
+            columns: ["rated_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_rater_id_fkey"
+            columns: ["rater_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
         ]
       }
       sub_categories: {
@@ -397,7 +626,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      lead_status: "open" | "in_progress" | "completed" | "cancelled"
+      lead_status: "open" | "in_progress" | "completed" | "cancelled" | "claimed" | "rejected" | "pending"
       log_status: "fulfill" | "pending" | "rejected"
       subscription_status: "active" | "expired" | "pending"
       user_role: "admin" | "user" | "provider"
@@ -531,7 +760,7 @@ export const Constants = {
   },
   public: {
     Enums: {
-      lead_status: ["open", "in_progress", "completed", "cancelled"],
+      lead_status: ["open", "in_progress", "completed", "cancelled", "claimed", "rejected"],
       log_status: ["fulfill", "pending", "rejected"],
       subscription_status: ["active", "expired", "pending"],
       user_role: ["admin", "user", "provider"],

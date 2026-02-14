@@ -9,6 +9,7 @@ interface Profile {
   name?: string; // Alias for user_name for easier access
   phone: string | null;
   avatar_url: string | null;
+  profile_image: string | null;
   preferred_language: string;
   location_lat: number | null;
   location_long: number | null;
@@ -17,6 +18,8 @@ interface Profile {
   subscription_expires_at: string | null;
   category_id: string | null;
   sub_category_id: string | null;
+  service_type: string | null;
+  bio: string | null;
   credit_balance: number;
   referral_code: string | null;
   role: 'admin' | 'user' | 'provider';
@@ -37,7 +40,8 @@ interface AuthContextType {
     role?: 'user' | 'provider',
     location_lat?: number | null,
     location_long?: number | null,
-    service_radius_km?: number
+    service_radius_km?: number,
+    referral_code?: string
   ) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -211,15 +215,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setProfile(null);
   };
 
-  const updateProfile = async (updates: {
-    name?: string;
-    phone?: string;
-    location_lat?: number | null;
-    location_long?: number | null;
-    service_radius_km?: number;
-    category_id?: string | null;
-    sub_category_id?: string | null;
-  }) => {
+  const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('Not authenticated') };
 
     const { error } = await supabase

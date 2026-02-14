@@ -144,7 +144,7 @@ export function generateLeadReport(leads: any[]): LeadReport {
     }
   });
 
-  const topProviders = Array.from(providerStats.values())
+  const topProviders = Object.values(agentStats)
     .sort((a, b) => b.completedCount - a.completedCount)
     .slice(0, 10)
     .map((p) => ({

@@ -38,6 +38,8 @@ interface UserProfile {
   subscription_expires_at: string | null;
   created_at: string | null;
   service_radius_km?: number | null;
+  company_name?: string | null;
+  service_type?: string | null;
   categories: { name: string } | null;
   sub_categories: { name: string } | null;
 }
@@ -54,6 +56,7 @@ interface WhatsAppLead {
   status: string;
   source: string | null;
   lead_generator_name: string | null;
+  service_type: string | null;
 }
 
 interface WhatsAppMessage {
@@ -158,6 +161,7 @@ const Admin: React.FC = () => {
       }
 
       try {
+        // @ts-ignore
         const { data, error } = await supabase.rpc('has_role', {
           _user_id: user.id,
           _role: 'admin',
@@ -306,7 +310,14 @@ const Admin: React.FC = () => {
           .limit(50);
 
         if (error) throw error;
-        setWhatsappLeads((data as WhatsAppLead[]) || []);
+        const safeLeads = (data || []).map((lead: any) => ({
+          ...lead,
+          status: lead.status || 'open', // Default status if null
+          created_at: lead.created_at || new Date().toISOString(),
+          customer_name: lead.customer_name || 'Unknown',
+          location_address: lead.location_address || ''
+        }));
+        setWhatsappLeads(safeLeads as WhatsAppLead[]);
       } catch (error) {
         console.error('Error fetching WhatsApp leads:', error);
       } finally {
@@ -378,7 +389,18 @@ const Admin: React.FC = () => {
           .limit(100);
 
         if (error) throw error;
-        setWhatsappMessages(data || []);
+        const safeMessages: WhatsAppMessage[] = (data || []).map((msg: any) => ({
+          id: msg.id,
+          sender_name: msg.sender_phone || 'Unknown', // Fallback as sender_name might not exist directly
+          sender_phone: msg.sender_phone,
+          raw_message: msg.new_msg, // Map new_msg to raw_message
+          group_name: null,
+          group_id: msg.group_id,
+          message_timestamp: msg.created_at,
+          status: msg.status,
+          created_at: msg.created_at,
+        }));
+        setWhatsappMessages(safeMessages);
       } catch (error) {
         console.error('Error fetching WhatsApp messages:', error);
       } finally {
@@ -478,7 +500,19 @@ const Admin: React.FC = () => {
           table: 'whatsapp_messages',
         },
         async (payload) => {
-          const newMessage = payload.new as WhatsAppMessage;
+          const rawMsg = payload.new as any;
+          const newMessage: WhatsAppMessage = {
+            id: rawMsg.id,
+            sender_name: rawMsg.sender_phone || 'Unknown',
+            sender_phone: rawMsg.sender_phone,
+            raw_message: rawMsg.new_msg,
+            group_name: null,
+            group_id: rawMsg.group_id,
+            message_timestamp: rawMsg.created_at,
+            status: rawMsg.status,
+            created_at: rawMsg.created_at,
+          };
+
           setWhatsappMessages((prev) => {
             // Only add if not already in list
             if (prev.some(m => m.id === newMessage.id)) return prev;
@@ -504,7 +538,18 @@ const Admin: React.FC = () => {
           table: 'whatsapp_messages',
         },
         (payload) => {
-          const updatedMessage = payload.new as WhatsAppMessage;
+          const rawMsg = payload.new as any;
+          const updatedMessage: WhatsAppMessage = {
+            id: rawMsg.id,
+            sender_name: rawMsg.sender_phone || 'Unknown',
+            sender_phone: rawMsg.sender_phone,
+            raw_message: rawMsg.new_msg,
+            group_name: null,
+            group_id: rawMsg.group_id,
+            message_timestamp: rawMsg.created_at,
+            status: rawMsg.status,
+            created_at: rawMsg.created_at,
+          };
           setWhatsappMessages((prev) =>
             prev.map((msg) => (msg.id === updatedMessage.id ? updatedMessage : msg))
           );
@@ -999,9 +1044,9 @@ const Admin: React.FC = () => {
     const query = searchQuery.toLowerCase();
     const filtered = users.filter(
       (user) =>
-        user.name?.toLowerCase().includes(query) ||
-        user.phone?.toLowerCase().includes(query) ||
-        user.service_type?.toLowerCase().includes(query)
+        (user.user_name || '').toLowerCase().includes(query) ||
+        (user.phone || '').toLowerCase().includes(query) ||
+        (user.service_type || '').toLowerCase().includes(query)
     );
     setFilteredUsers(filtered);
   }, [searchQuery, users]);

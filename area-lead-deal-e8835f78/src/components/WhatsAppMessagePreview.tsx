@@ -18,6 +18,7 @@ interface WhatsAppMessage {
   group_name: string | null;
   group_id: string | null;
   message_timestamp: string | null;
+  status: string | null;
   created_at: string | null;
 }
 

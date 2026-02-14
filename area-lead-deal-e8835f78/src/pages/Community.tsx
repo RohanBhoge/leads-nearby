@@ -25,7 +25,7 @@ const Community: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [userNames, setUserNames] = useState<Record<string, string>>({});
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user, profile } = useAuth();
   const { t } = useLanguage();
@@ -53,7 +53,7 @@ const Community: React.FC = () => {
         (payload) => {
           const newMsg = payload.new as CommunityMessage;
           setMessages((prev) => [...prev, newMsg]);
-          
+
           // Fetch user name if not cached
           if (!userNames[newMsg.user_id]) {
             fetchUserName(newMsg.user_id);
@@ -77,7 +77,7 @@ const Community: React.FC = () => {
 
   const fetchMessages = async () => {
     setLoading(true);
-    
+
     const { data, error } = await supabase
       .from('community_messages')
       .select('*')
@@ -87,15 +87,21 @@ const Community: React.FC = () => {
     if (error) {
       console.error('Error fetching messages:', error);
     } else {
-      setMessages(data || []);
-      
+      const safeMessages = (data || []).map((msg: any) => ({
+        ...msg,
+        user_id: msg.user_id || '',
+        message: msg.message || '',
+        created_at: msg.created_at || new Date().toISOString(),
+      }));
+      setMessages(safeMessages);
+
       // Fetch all user names
-      const userIds = [...new Set((data || []).map((m) => m.user_id))];
+      const userIds = [...new Set(safeMessages.map((m) => m.user_id))];
       for (const userId of userIds) {
         await fetchUserName(userId);
       }
     }
-    
+
     setLoading(false);
   };
 
@@ -107,7 +113,7 @@ const Community: React.FC = () => {
       .maybeSingle();
 
     if (data) {
-      setUserNames((prev) => ({ ...prev, [userId]: data.name }));
+      setUserNames((prev) => ({ ...prev, [userId]: data.name || 'Unknown' }));
     }
   };
 
@@ -160,18 +166,17 @@ const Community: React.FC = () => {
             messages.map((msg) => {
               const isOwn = msg.user_id === user?.id;
               const userName = userNames[msg.user_id] || 'User';
-              
+
               return (
                 <div
                   key={msg.id}
                   className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                      isOwn
-                        ? 'bg-primary text-primary-foreground rounded-br-md'
-                        : 'bg-card border border-border rounded-bl-md'
-                    }`}
+                    className={`max-w-[80%] rounded-2xl px-4 py-2 ${isOwn
+                      ? 'bg-primary text-primary-foreground rounded-br-md'
+                      : 'bg-card border border-border rounded-bl-md'
+                      }`}
                   >
                     {!isOwn && (
                       <p className="text-xs font-semibold text-primary mb-1">

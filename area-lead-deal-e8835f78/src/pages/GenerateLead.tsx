@@ -80,7 +80,7 @@ const GenerateLead: React.FC = () => {
         .from('sub_categories')
         .select('id, name, category_id')
         .order('name');
-      if (data) setSubCategories(data);
+      if (data) setSubCategories(data as any);
     };
 
     fetchCategories();
