@@ -320,7 +320,7 @@ const LeadDetails: React.FC = () => {
   if (!lead) return null;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header title="Lead Details" showBack />
 
       <main className="px-4 py-6 max-w-2xl mx-auto space-y-4">

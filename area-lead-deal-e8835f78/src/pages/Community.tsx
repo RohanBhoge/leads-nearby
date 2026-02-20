@@ -148,7 +148,7 @@ const Community: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-16">
+    <div className="min-h-screen bg-background flex flex-col pb-16 md:ml-60 md:pb-0">
       <Header title="Community" showBack />
 
       <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full overflow-hidden">
@@ -196,7 +196,7 @@ const Community: React.FC = () => {
         </div>
 
         {/* Input - Fixed at bottom */}
-        <div className="fixed bottom-16 left-0 right-0 p-4 border-t border-border bg-card shadow-lg max-w-3xl mx-auto">
+        <div className="fixed bottom-16 md:bottom-0 left-0 md:left-60 right-0 p-4 border-t border-border bg-card shadow-lg max-w-3xl mx-auto">
           <div className="flex gap-2">
             <Input
               value={newMessage}

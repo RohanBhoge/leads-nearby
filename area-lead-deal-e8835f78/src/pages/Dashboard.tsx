@@ -141,7 +141,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen bg-background pb-20 md:ml-60 md:pb-6">
       <Header
         rightElement={
           <Button

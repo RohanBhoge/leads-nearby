@@ -136,7 +136,7 @@ const Notifications: React.FC = () => {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header
         title="Notifications"
         showBack
@@ -163,7 +163,7 @@ const Notifications: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+          <div className="space-y-3">
             {notifications.map((notification) => (
               <button
                 key={notification.id}

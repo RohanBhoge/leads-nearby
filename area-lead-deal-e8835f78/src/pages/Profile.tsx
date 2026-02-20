@@ -109,7 +109,7 @@ const Profile: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header title={t('profile')} />
 
       <main className="px-4 py-6 max-w-2xl mx-auto space-y-6">

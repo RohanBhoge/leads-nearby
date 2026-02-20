@@ -226,7 +226,7 @@ const GenerateLead: React.FC = () => {
   const canSubmit = customerPhone.length === 10 && latitude !== null && longitude !== null;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header title={t('generateLead')} showBack />
 
       <main className="px-4 py-6 max-w-2xl mx-auto">

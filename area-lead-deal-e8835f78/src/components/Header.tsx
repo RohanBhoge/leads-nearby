@@ -21,7 +21,7 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-lg border-b border-border safe-area-top">
-      <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between h-14 px-4 max-w-5xl mx-auto">
         <div className="flex items-center gap-2">
           {showBack && (
             <Button

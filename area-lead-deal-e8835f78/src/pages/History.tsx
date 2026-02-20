@@ -138,7 +138,7 @@ const History: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header title={t('history')} />
 
       <main className="px-4 py-6 max-w-4xl mx-auto">
@@ -157,7 +157,7 @@ const History: React.FC = () => {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="claimed" className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+            <TabsContent value="claimed" className="space-y-4">
               {claimedLeads.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle className="mx-auto text-muted-foreground mb-4" size={48} />
@@ -168,7 +168,7 @@ const History: React.FC = () => {
               )}
             </TabsContent>
 
-            <TabsContent value="created" className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+            <TabsContent value="created" className="space-y-4">
               {myLeads.length === 0 ? (
                 <div className="text-center py-12">
                   <AlertCircle className="mx-auto text-muted-foreground mb-4" size={48} />

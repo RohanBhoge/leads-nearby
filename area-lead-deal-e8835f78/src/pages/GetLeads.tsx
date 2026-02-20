@@ -365,7 +365,7 @@ const GetLeads: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header
         title={t('getLeads')}
         showBack

@@ -62,12 +62,7 @@ const Index: React.FC = () => {
   const [headerScrolled, setHeaderScrolled] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
-  // ── Auth Redirect ──
-  useEffect(() => {
-    if (!loading && user) {
-      navigate('/dashboard');
-    }
-  }, [user, loading, navigate]);
+  // Landing page is accessible to everyone — no redirect
 
   // ── Typing Effect ──
   useEffect(() => {
@@ -166,25 +161,39 @@ const Index: React.FC = () => {
             <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navHowItWorks')}</a>
             <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navContact')}</a>
             <LanguageToggle />
-            <Button variant="outline" size="sm" onClick={() => navigate('/auth')} className="hover:scale-[1.03] active:scale-[0.97] transition-transform duration-200">
-              {t('login')}
-            </Button>
-            <Button
-              variant="hero"
-              size="sm"
-              onClick={() => navigate('/auth')}
-              className="gap-2 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300"
-            >
-              <PlusCircle className="w-4 h-4" />
-              {t('navPostJob')}
-            </Button>
-            <button
-              className="h-9 px-4 bg-[#FF8C00] hover:bg-orange-600 active:scale-[0.97] transition-all duration-300 rounded-lg flex items-center gap-2 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 hover:scale-[1.03] text-white font-semibold text-sm"
-              onClick={() => navigate('/auth')}
-            >
-              <Briefcase className="w-4 h-4" />
-              {t('navFindWork')}
-            </button>
+            {user ? (
+              <Button
+                variant="hero"
+                size="sm"
+                onClick={() => navigate('/dashboard')}
+                className="gap-2 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300"
+              >
+                {t('dashboard') || 'Dashboard'}
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" onClick={() => navigate('/auth')} className="hover:scale-[1.03] active:scale-[0.97] transition-transform duration-200">
+                  {t('login')}
+                </Button>
+                <Button
+                  variant="hero"
+                  size="sm"
+                  onClick={() => navigate('/auth')}
+                  className="gap-2 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  {t('navPostJob')}
+                </Button>
+                <button
+                  className="h-9 px-4 bg-[#FF8C00] hover:bg-orange-600 active:scale-[0.97] transition-all duration-300 rounded-lg flex items-center gap-2 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 hover:scale-[1.03] text-white font-semibold text-sm"
+                  onClick={() => navigate('/auth')}
+                >
+                  <Briefcase className="w-4 h-4" />
+                  {t('navFindWork')}
+                </button>
+              </>
+            )}
           </nav>
 
           {/* Mobile / Tablet Menu Button — visible below lg */}
@@ -208,16 +217,25 @@ const Index: React.FC = () => {
               <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary py-2 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>{t('navHowItWorks')}</a>
               <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-primary py-2 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>{t('navContact')}</a>
               <div className="border-t border-border pt-3 mt-1 flex flex-col gap-2">
-                <Button variant="outline" size="sm" onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }} className="w-full">{t('login')}</Button>
-                <Button variant="hero" size="sm" onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
-                  <PlusCircle className="w-4 h-4" /> {t('navPostJob')}
-                </Button>
-                <button
-                  className="h-10 bg-[#FF8C00] hover:bg-orange-600 active:scale-[0.97] transition-all rounded-lg flex items-center justify-center gap-2 text-white font-semibold text-sm w-full"
-                  onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }}
-                >
-                  <Briefcase className="w-4 h-4" /> {t('navFindWork')}
-                </button>
+                {user ? (
+                  <Button variant="hero" size="sm" onClick={() => { navigate('/dashboard'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
+                    {t('dashboard') || 'Dashboard'}
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }} className="w-full">{t('login')}</Button>
+                    <Button variant="hero" size="sm" onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
+                      <PlusCircle className="w-4 h-4" /> {t('navPostJob')}
+                    </Button>
+                    <button
+                      className="h-10 bg-[#FF8C00] hover:bg-orange-600 active:scale-[0.97] transition-all rounded-lg flex items-center justify-center gap-2 text-white font-semibold text-sm w-full"
+                      onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }}
+                    >
+                      <Briefcase className="w-4 h-4" /> {t('navFindWork')}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -268,9 +286,9 @@ const Index: React.FC = () => {
               variant="hero"
               size="lg"
               className="h-14 md:h-16 gap-3 text-lg shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.04] active:scale-[0.97] transition-all duration-300 px-10"
-              onClick={() => navigate('/auth')}
+              onClick={() => navigate(user ? '/dashboard' : '/auth')}
             >
-              {t('heroGetStarted')}
+              {user ? (t('dashboard') || 'Dashboard') : t('heroGetStarted')}
               <ArrowRight className="w-5 h-5" />
             </Button>
           </div>

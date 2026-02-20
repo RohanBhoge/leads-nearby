@@ -85,7 +85,7 @@ const AdminDashboard: React.FC = () => {
   const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-24 md:ml-60 md:pb-6">
       <Header title="Admin Dashboard" showBack />
 
       <main className="px-4 py-6 max-w-6xl mx-auto space-y-6">
