@@ -119,39 +119,47 @@ const LeadDetails: React.FC = () => {
     if (data.claimed_by) {
       const { data: claimerProfile } = await supabase
         .from('profiles')
-        .select('name')
+        .select('user_name')
         .eq('id', data.claimed_by)
         .maybeSingle();
 
-      if ((claimerProfile as any)?.name) {
-        setClaimerName((claimerProfile as any).name);
+      if ((claimerProfile as any)?.user_name) {
+        setClaimerName((claimerProfile as any).user_name);
       }
 
-      // Fetch claimer's average rating
-      const { data: ratings } = await (supabase as any)
-        .from('ratings')
-        .select('rating')
-        .eq('rated_user_id', data.claimed_by);
+      // Fetch claimer's average rating (table may not exist yet)
+      try {
+        const { data: ratings } = await (supabase as any)
+          .from('ratings')
+          .select('rating')
+          .eq('rated_user_id', data.claimed_by);
 
-      if (ratings && ratings.length > 0) {
-        const avg = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
-        setClaimerRating({ average: avg, count: ratings.length });
+        if (ratings && ratings.length > 0) {
+          const avg = ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / ratings.length;
+          setClaimerRating({ average: avg, count: ratings.length });
+        }
+      } catch (e) {
+        console.warn('Ratings table not available:', e);
       }
 
       // Check if already rated this lead
       if (user) {
-        const { data: existingRating } = await (supabase as any)
-          .from('ratings')
-          .select('id')
-          .eq('lead_id', id)
-          .eq('rater_id', user.id)
-          .maybeSingle();
+        try {
+          const { data: existingRating } = await (supabase as any)
+            .from('ratings')
+            .select('id')
+            .eq('lead_id', id)
+            .eq('rater_id', user.id)
+            .maybeSingle();
 
-        setHasRated(!!existingRating);
+          setHasRated(!!existingRating);
 
-        // Auto-show rating modal for generator when lead is completed and not yet rated
-        if (data.status === 'completed' && data.created_by === user.id && !existingRating) {
-          setAutoShowRating(true);
+          // Auto-show rating modal for generator when lead is completed and not yet rated
+          if (data.status === 'completed' && data.created_by === user.id && !existingRating) {
+            setAutoShowRating(true);
+          }
+        } catch (e) {
+          console.warn('Ratings check not available:', e);
         }
       }
     }
@@ -244,12 +252,20 @@ const LeadDetails: React.FC = () => {
         throw new Error(errorMsg);
       }
 
-      // Notify lead generator
+      // Award 5 credits to the lead GENERATOR (created_by)
+      // The DB trigger handles this automatically when status changes to 'completed'
+      // The trigger awards to created_by (generator)
+
+      // Try to notify (non-critical, may fail due to RLS)
       if (lead.created_by) {
-        await triggerLeadNotification(lead.created_by, 'completed', {
-          id: lead.id,
-          service_type: lead.categories?.name || 'Service',
-        });
+        try {
+          await triggerLeadNotification(lead.created_by, 'completed', {
+            id: lead.id,
+            service_type: lead.categories?.name || 'Service',
+          });
+        } catch (notifErr) {
+          console.warn('Notification failed (non-critical):', notifErr);
+        }
       }
 
       toast({
@@ -307,7 +323,7 @@ const LeadDetails: React.FC = () => {
     <div className="min-h-screen bg-background pb-24">
       <Header title="Lead Details" showBack />
 
-      <main className="px-4 py-6 max-w-md mx-auto space-y-4">
+      <main className="px-4 py-6 max-w-2xl mx-auto space-y-4">
         {/* Expiry Warning */}
         {(isClaimer || isGenerator) && lead.status === 'claimed' && daysRemaining !== null && (
           <div className={`rounded-2xl p-4 flex items-start gap-3 ${aboutToExpire

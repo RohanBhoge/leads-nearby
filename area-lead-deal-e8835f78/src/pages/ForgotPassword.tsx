@@ -18,7 +18,7 @@ const ForgotPassword: React.FC = () => {
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email.trim()) {
       toast({
         variant: 'destructive',
@@ -71,7 +71,7 @@ const ForgotPassword: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 pb-8">
-        <div className="w-full max-w-md space-y-8">
+        <div className="w-full max-w-2xl space-y-8">
           {/* Logo */}
           <div className="text-center space-y-2">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl">

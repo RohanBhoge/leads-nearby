@@ -191,38 +191,176 @@
   }
 
   @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
   }
 
   @keyframes pulse-glow {
-    0%, 100% { 
+
+    0%,
+    100% {
       box-shadow: 0 0 20px hsl(142 76% 36% / 0.3);
     }
-    50% { 
+
+    50% {
       box-shadow: 0 0 40px hsl(142 76% 36% / 0.5);
     }
   }
 
   @keyframes slide-up {
-    from { 
+    from {
       opacity: 0;
       transform: translateY(20px);
     }
-    to { 
+
+    to {
       opacity: 1;
       transform: translateY(0);
     }
   }
 
   @keyframes scale-in {
-    from { 
+    from {
       opacity: 0;
       transform: scale(0.95);
     }
-    to { 
+
+    to {
       opacity: 1;
       transform: scale(1);
     }
+  }
+
+  /* ── Scroll Reveal Animations ── */
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(60px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes reveal-left {
+    from {
+      opacity: 0;
+      transform: translateX(-60px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes reveal-right {
+    from {
+      opacity: 0;
+      transform: translateX(60px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes reveal-scale {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes cursor-blink {
+
+    0%,
+    100% {
+      border-color: hsl(var(--primary));
+    }
+
+    50% {
+      border-color: transparent;
+    }
+  }
+
+  /* Hidden state before scroll triggers */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(40px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .scroll-reveal.visible {
+    opacity: 1;
+    transform: translateY(0) translateX(0) scale(1);
+  }
+
+  /* Stagger delays for grid children */
+  .stagger-1 {
+    transition-delay: 0.05s;
+  }
+
+  .stagger-2 {
+    transition-delay: 0.1s;
+  }
+
+  .stagger-3 {
+    transition-delay: 0.15s;
+  }
+
+  .stagger-4 {
+    transition-delay: 0.2s;
+  }
+
+  .stagger-5 {
+    transition-delay: 0.25s;
+  }
+
+  .stagger-6 {
+    transition-delay: 0.3s;
+  }
+
+  .stagger-7 {
+    transition-delay: 0.35s;
+  }
+
+  .stagger-8 {
+    transition-delay: 0.4s;
+  }
+
+  .stagger-9 {
+    transition-delay: 0.45s;
+  }
+
+  .stagger-10 {
+    transition-delay: 0.5s;
+  }
+
+  .stagger-11 {
+    transition-delay: 0.55s;
+  }
+
+  .animate-cursor-blink {
+    animation: cursor-blink 1s step-end infinite;
+  }
+
+  html {
+    scroll-behavior: smooth;
   }
 }

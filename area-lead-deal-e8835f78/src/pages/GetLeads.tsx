@@ -37,7 +37,8 @@ interface Lead {
 
 interface LeadFilters {
   search: string;
-  serviceType: string;
+  category?: string;
+  subCategory?: string;
   distance: number;
   minDistance?: number;
   maxDistance?: number;
@@ -74,7 +75,6 @@ const GetLeads: React.FC = () => {
 
   const [filters, setFilters] = useState<LeadFilters>({
     search: '',
-    serviceType: 'all',
     distance: 50,
   });
 
@@ -146,11 +146,15 @@ const GetLeads: React.FC = () => {
   useEffect(() => {
     let filtered = [...leads];
 
-    if (filters.serviceType) {
+    if (filters.category) {
       filtered = filtered.filter((lead) =>
-        lead.categories?.name?.toLowerCase() === filters.serviceType?.toLowerCase() ||
-        // Fallback for hardcoded constants matching
-        lead.categories?.name?.toLowerCase().replace(/ /g, '_') === filters.serviceType?.toLowerCase()
+        lead.categories?.name?.toLowerCase() === filters.category?.toLowerCase()
+      );
+    }
+
+    if (filters.subCategory) {
+      filtered = filtered.filter((lead) =>
+        lead.sub_categories?.name?.toLowerCase() === filters.subCategory?.toLowerCase()
       );
     }
 
@@ -377,7 +381,7 @@ const GetLeads: React.FC = () => {
         }
       />
 
-      <main className="px-4 py-6 max-w-md mx-auto">
+      <main className="px-4 py-6 max-w-4xl mx-auto">
         {/* Filter Button */}
         <div className="mb-6">
           <LeadFilter
@@ -423,7 +427,7 @@ const GetLeads: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
             <p className="text-sm text-muted-foreground">
               {filteredLeads.length} {filteredLeads.length === 1 ? 'lead' : 'leads'} found
             </p>
@@ -525,7 +529,7 @@ const GetLeads: React.FC = () => {
           </DialogHeader>
 
           <div className="py-6 text-center">
-            <div className="text-4xl font-bold text-foreground">₹500</div>
+            <div className="text-4xl font-bold text-foreground">₹99</div>
             <div className="text-muted-foreground">{t('perMonth')}</div>
 
             <ul className="mt-6 space-y-3 text-left">

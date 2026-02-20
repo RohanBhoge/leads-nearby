@@ -156,7 +156,7 @@ const Dashboard: React.FC = () => {
         }
       />
 
-      <main className="px-4 py-6 max-w-md mx-auto">
+      <main className="px-4 py-6 max-w-4xl mx-auto">
         {/* Welcome Section */}
         <div className="mb-8 animate-slide-up">
           <p className="text-muted-foreground text-sm">{greeting()}</p>
@@ -175,7 +175,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         {/* Main Action Buttons */}
-        <div className="space-y-4">
+        <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
           {/* Generate Lead Button */}
           <button
             onClick={() => navigate('/generate-lead')}
@@ -233,7 +233,7 @@ const Dashboard: React.FC = () => {
             </Button>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
             {loadingLeads ? (
               <div className="flex justify-center py-8">
                 <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -318,7 +318,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">{t('unlockLeads')}</p>
-                <p className="text-xs text-muted-foreground">₹500{t('perMonth')}</p>
+                <p className="text-xs text-muted-foreground">₹99{t('perMonth')}</p>
               </div>
               <Button
                 variant="actionSecondary"

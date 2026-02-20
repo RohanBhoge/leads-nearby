@@ -320,7 +320,7 @@ const Subscribe: React.FC = () => {
     <div className="min-h-screen bg-background pb-24">
       <Header title="Subscription" showBack />
 
-      <main className="px-4 py-6 max-w-md mx-auto space-y-6">
+      <main className="px-4 py-6 max-w-2xl mx-auto space-y-6">
         {/* Current Status with Timer */}
         <div className={`rounded-2xl p-6 text-center ${profile?.is_subscribed
           ? 'bg-primary/10 border-2 border-primary'

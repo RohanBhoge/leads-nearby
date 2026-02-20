@@ -17,7 +17,7 @@ import EditProfileDialog from '@/components/EditProfileDialog';
 
 const Profile: React.FC = () => {
   const { user, profile, signOut, loading: authLoading } = useAuth();
-  const { t } = useLanguage();
+  const { t, tc } = useLanguage();
 
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -112,7 +112,7 @@ const Profile: React.FC = () => {
     <div className="min-h-screen bg-background pb-24">
       <Header title={t('profile')} />
 
-      <main className="px-4 py-6 max-w-md mx-auto space-y-6">
+      <main className="px-4 py-6 max-w-2xl mx-auto space-y-6">
         {/* User Info Card */}
         <div className="bg-card border border-border rounded-2xl p-6 text-center animate-slide-up">
           <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 overflow-hidden border-2 border-primary/20">
@@ -214,12 +214,12 @@ const Profile: React.FC = () => {
                 <div className="flex flex-wrap gap-2">
                   {categoryName && (
                     <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                      {categoryName}
+                      {tc(categoryName)}
                     </span>
                   )}
                   {subCategoryName && (
                     <span className="px-3 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded-full">
-                      {subCategoryName}
+                      {tc(subCategoryName)}
                     </span>
                   )}
                 </div>

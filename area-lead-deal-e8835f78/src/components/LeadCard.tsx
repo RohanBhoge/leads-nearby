@@ -31,7 +31,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
   onViewDetails,
   onAccept,
 }) => {
-  const { t } = useLanguage();
+  const { t, tc } = useLanguage();
 
   const maskedPhone = isSubscribed
     ? (lead.customer_phone || 'N/A')
@@ -51,7 +51,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
       <div className="flex items-start justify-between mb-3">
         <div>
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-accent text-accent-foreground">
-            {serviceLabel}
+            {tc(serviceLabel)}
           </span>
           <div className="flex items-center gap-1 mt-2 text-muted-foreground text-sm">
             <Clock size={14} />

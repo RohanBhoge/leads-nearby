@@ -149,7 +149,7 @@ const Notifications: React.FC = () => {
         }
       />
 
-      <main className="px-4 py-6 max-w-md mx-auto">
+      <main className="px-4 py-6 max-w-4xl mx-auto">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -163,14 +163,14 @@ const Notifications: React.FC = () => {
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
             {notifications.map((notification) => (
               <button
                 key={notification.id}
                 onClick={() => handleNotificationClick(notification)}
                 className={`w-full text-left bg-card border rounded-xl p-4 transition-colors ${notification.read
-                    ? 'border-border'
-                    : 'border-primary bg-primary/5'
+                  ? 'border-border'
+                  : 'border-primary bg-primary/5'
                   }`}
               >
                 <div className="flex gap-3">

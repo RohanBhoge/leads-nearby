@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-
-import { SERVICE_TYPES, DEFAULT_SERVICE_TYPE } from '@/constants/serviceTypes';
+import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface LeadFilters {
-  serviceType?: string;
+  category?: string;
+  subCategory?: string;
   minDistance?: number;
   maxDistance?: number;
   dateFrom?: string;
@@ -25,17 +26,79 @@ interface LeadFilterProps {
   activeFiltersCount?: number;
 }
 
-const LeadFilter: React.FC<LeadFilterProps> = ({ onFiltersChange, activeFiltersCount = 0 }) => {
-  const [filters, setFilters] = useState<LeadFilters>({ serviceType: DEFAULT_SERVICE_TYPE });
-  const [isExpanded, setIsExpanded] = useState(false);
+interface Category {
+  id: string;
+  name: string;
+}
 
-  // Set default filter on mount
-  React.useEffect(() => {
-    onFiltersChange({ serviceType: DEFAULT_SERVICE_TYPE });
+interface SubCategory {
+  id: string;
+  name: string;
+  category_id: string;
+}
+
+const LeadFilter: React.FC<LeadFilterProps> = ({ onFiltersChange, activeFiltersCount = 0 }) => {
+  const { tc } = useLanguage();
+  const [filters, setFilters] = useState<LeadFilters>({});
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
+  const [filteredSubCategories, setFilteredSubCategories] = useState<SubCategory[]>([]);
+
+  // Fetch categories and subcategories from Supabase
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('id, name')
+        .order('name');
+      if (!error && data) {
+        setCategories(data);
+      }
+    };
+
+    const fetchSubCategories = async () => {
+      const { data, error } = await supabase
+        .from('sub_categories')
+        .select('id, name, category_id')
+        .order('name');
+      if (!error && data) {
+        setSubCategories(data as SubCategory[]);
+      }
+    };
+
+    fetchCategories();
+    fetchSubCategories();
   }, []);
 
-  const handleServiceTypeChange = (value: string) => {
-    const newFilters = { ...filters, serviceType: value === 'all' ? undefined : value };
+  // Filter subcategories when category changes
+  useEffect(() => {
+    if (filters.category) {
+      const selectedCategory = categories.find(c => c.name === filters.category);
+      if (selectedCategory) {
+        setFilteredSubCategories(
+          subCategories.filter(sc => sc.category_id === selectedCategory.id)
+        );
+      } else {
+        setFilteredSubCategories([]);
+      }
+    } else {
+      setFilteredSubCategories([]);
+    }
+  }, [filters.category, categories, subCategories]);
+
+  const handleCategoryChange = (value: string) => {
+    const newFilters = {
+      ...filters,
+      category: value === 'all' ? undefined : value,
+      subCategory: undefined, // Reset subcategory when category changes
+    };
+    setFilters(newFilters);
+    onFiltersChange(newFilters);
+  };
+
+  const handleSubCategoryChange = (value: string) => {
+    const newFilters = { ...filters, subCategory: value === 'all' ? undefined : value };
     setFilters(newFilters);
     onFiltersChange(newFilters);
   };
@@ -105,26 +168,50 @@ const LeadFilter: React.FC<LeadFilterProps> = ({ onFiltersChange, activeFiltersC
               </Button>
             )}
           </div>
-          {/* Service Type Filter */}
+
+          {/* Category Filter */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Service Type</label>
+            <label className="text-sm font-medium">Category</label>
             <Select
-              value={filters.serviceType || 'all'}
-              onValueChange={handleServiceTypeChange}
+              value={filters.category || 'all'}
+              onValueChange={handleCategoryChange}
             >
               <SelectTrigger>
-                <SelectValue placeholder="All Types" />
+                <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {SERVICE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.name}>
+                    {tc(cat.name)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Subcategory Filter */}
+          {filters.category && filteredSubCategories.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Subcategory</label>
+              <Select
+                value={filters.subCategory || 'all'}
+                onValueChange={handleSubCategoryChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Subcategories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Subcategories</SelectItem>
+                  {filteredSubCategories.map((sub) => (
+                    <SelectItem key={sub.id} value={sub.name}>
+                      {tc(sub.name)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Distance Filter */}
           <div className="space-y-2">

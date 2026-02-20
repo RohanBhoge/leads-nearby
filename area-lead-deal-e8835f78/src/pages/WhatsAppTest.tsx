@@ -64,7 +64,7 @@ const WhatsAppTest: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       <Header title="WhatsApp Test" showBack />
-      <main className="px-4 py-6 max-w-md mx-auto space-y-4">
+      <main className="px-4 py-6 max-w-2xl mx-auto space-y-4">
         <p className="text-sm text-muted-foreground">
           Dev-only tool to quickly open a WhatsApp chat with a prefilled message. This does not send automatically; it opens WhatsApp/Web with your message.
         </p>

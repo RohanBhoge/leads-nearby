@@ -151,7 +151,7 @@ const Community: React.FC = () => {
     <div className="min-h-screen bg-background flex flex-col pb-16">
       <Header title="Community" showBack />
 
-      <main className="flex-1 flex flex-col max-w-md mx-auto w-full overflow-hidden">
+      <main className="flex-1 flex flex-col max-w-3xl mx-auto w-full overflow-hidden">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 pb-20">
           {loading ? (
@@ -196,7 +196,7 @@ const Community: React.FC = () => {
         </div>
 
         {/* Input - Fixed at bottom */}
-        <div className="fixed bottom-16 left-0 right-0 p-4 border-t border-border bg-card shadow-lg max-w-md mx-auto">
+        <div className="fixed bottom-16 left-0 right-0 p-4 border-t border-border bg-card shadow-lg max-w-3xl mx-auto">
           <div className="flex gap-2">
             <Input
               value={newMessage}

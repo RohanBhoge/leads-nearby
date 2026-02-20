@@ -1,23 +1,138 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowRight, CheckCircle, MapPin, Bell, Users, Zap, Shield, Phone, Mail, Globe } from 'lucide-react';
+import { ArrowRight, CheckCircle, MapPin, Bell, Users, Zap, Shield, Phone, Mail, Globe, Search, PlusCircle, Briefcase, Navigation, Star, Menu, X, Plus, Minus, PlayCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageToggle from '@/components/LanguageToggle';
 
-import logo from '@/assets/logo.png';
+// ── Category Background Images ──
+import imgEvents from '@/assets/Events & Celebrations.png';
+import imgHomeRepairs from '@/assets/Home Repairs & Maintenance.png';
+import imgElectronic from '@/assets/Electronic & Home Appliances.png';
+import imgAcademic from '@/assets/Academic & College Services.png';
+import imgLogistics from '@/assets/Logistics & Daily Labor.png';
+import imgPersonalCare from '@/assets/Personal Care & Wellness.png';
+import imgCleaning from '@/assets/Cleaning & Sanitization.png';
+import imgProfessional from '@/assets/Professional & Legal Services.png';
+import imgIT from '@/assets/IT & Digital Solutions.png';
+import imgUrgent from '@/assets/Urgent & Emergency Help.png';
+import imgHospitality from '@/assets/Hospitality & Stay Management.png';
+
+// ── Typing Animation Strings ──
+const TYPING_STRINGS = [
+  "Plumber",
+  "Electrician",
+  "Rent Agreement",
+  "Home Tutor",
+  "Event Host",
+  "AC Repair",
+  "House Cleaner",
+  "CCTV Setup",
+  "Packers & Movers",
+];
+
+// ── All 11 Service Categories ──
+const SERVICE_CATEGORIES = [
+  { titleKey: 'catEvents', subtitleKey: 'catSubEvents', image: imgEvents },
+  { titleKey: 'catHomeRepairs', subtitleKey: 'catSubHomeRepairs', image: imgHomeRepairs },
+  { titleKey: 'catElectronic', subtitleKey: 'catSubElectronic', image: imgElectronic },
+  { titleKey: 'catAcademic', subtitleKey: 'catSubAcademic', image: imgAcademic },
+  { titleKey: 'catLogistics', subtitleKey: 'catSubLogistics', image: imgLogistics },
+  { titleKey: 'catPersonalCare', subtitleKey: 'catSubPersonalCare', image: imgPersonalCare },
+  { titleKey: 'catCleaning', subtitleKey: 'catSubCleaning', image: imgCleaning },
+  { titleKey: 'catProfessional', subtitleKey: 'catSubProfessional', image: imgProfessional },
+  { titleKey: 'catIT', subtitleKey: 'catSubIT', image: imgIT },
+  { titleKey: 'catUrgent', subtitleKey: 'catSubUrgent', image: imgUrgent },
+  { titleKey: 'catHospitality', subtitleKey: 'catSubHospitality', image: imgHospitality },
+];
 
 const Index: React.FC = () => {
   const { user, loading } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
+  // ── Typing Animation State ──
+  const [currentText, setCurrentText] = useState("");
+  const [stringIndex, setStringIndex] = useState(0);
+  const [charIndex, setCharIndex] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [headerScrolled, setHeaderScrolled] = useState(false);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+
+  // ── Auth Redirect ──
   useEffect(() => {
     if (!loading && user) {
       navigate('/dashboard');
     }
   }, [user, loading, navigate]);
+
+  // ── Typing Effect ──
+  useEffect(() => {
+    if (isPaused) {
+      const timeout = setTimeout(() => {
+        setIsPaused(false);
+        setIsDeleting(true);
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
+
+    const currentString = TYPING_STRINGS[stringIndex];
+
+    const timeout = setTimeout(() => {
+      if (!isDeleting) {
+        if (charIndex < currentString.length) {
+          setCurrentText((prev) => prev + currentString[charIndex]);
+          setCharIndex((prev) => prev + 1);
+        } else {
+          setIsPaused(true);
+        }
+      } else {
+        if (charIndex > 0) {
+          setCurrentText((prev) => prev.slice(0, -1));
+          setCharIndex((prev) => prev - 1);
+        } else {
+          setIsDeleting(false);
+          setStringIndex((prev) => (prev + 1) % TYPING_STRINGS.length);
+        }
+      }
+    }, isDeleting ? 50 : 100);
+
+    return () => clearTimeout(timeout);
+  }, [charIndex, isDeleting, isPaused, stringIndex]);
+
+  // ── Header shadow on scroll ──
+  useEffect(() => {
+    const handleScroll = () => setHeaderScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+
+  // ── Scroll Reveal Observer ──
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.08, rootMargin: '0px 0px -30px 0px' }
+      );
+
+      document.querySelectorAll('.scroll-reveal').forEach((el) => observer.observe(el));
+
+      return () => observer.disconnect();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   if (loading) {
     return (
@@ -28,65 +143,233 @@ const Index: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* <img src={logo} alt="Leads Nearby Logo" className="w-11 h-max-11 object-contain" /> */}
-            <span className="text-xl font-bold text-foreground">
+    <div className="min-h-screen bg-background overflow-x-hidden">
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* HEADER — Responsive with Hamburger          */}
+      {/* ═══════════════════════════════════════════ */}
+      <header className={`border-b border-border bg-card/80 backdrop-blur-lg sticky top-0 z-50 transition-shadow duration-500 ${headerScrolled ? 'shadow-lg shadow-black/5' : ''}`}>
+        <div className="max-w-7xl mx-auto px-4 lg:px-12 py-3 flex items-center justify-between">
+          {/* Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-primary rounded-xl flex items-center justify-center shadow-sm shadow-primary/30">
+              <Navigation className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground fill-current" />
+            </div>
+            <span className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
               Leads <span className="text-primary">Nearby</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Desktop Nav — visible on lg (1024px+) */}
+          <nav className="hidden lg:flex items-center gap-4">
+            <a href="#services" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navServices')}</a>
+            <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navHowItWorks')}</a>
+            <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navContact')}</a>
             <LanguageToggle />
-            <Button variant="outline" size="sm" onClick={() => navigate('/auth')}>
-              Login
+            <Button variant="outline" size="sm" onClick={() => navigate('/auth')} className="hover:scale-[1.03] active:scale-[0.97] transition-transform duration-200">
+              {t('login')}
             </Button>
+            <Button
+              variant="hero"
+              size="sm"
+              onClick={() => navigate('/auth')}
+              className="gap-2 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30 hover:scale-[1.03] active:scale-[0.97] transition-all duration-300"
+            >
+              <PlusCircle className="w-4 h-4" />
+              {t('navPostJob')}
+            </Button>
+            <button
+              className="h-9 px-4 bg-[#FF8C00] hover:bg-orange-600 active:scale-[0.97] transition-all duration-300 rounded-lg flex items-center gap-2 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 hover:scale-[1.03] text-white font-semibold text-sm"
+              onClick={() => navigate('/auth')}
+            >
+              <Briefcase className="w-4 h-4" />
+              {t('navFindWork')}
+            </button>
+          </nav>
+
+          {/* Mobile / Tablet Menu Button — visible below lg */}
+          <div className="flex lg:hidden items-center gap-2">
+            <LanguageToggle />
+            <button
+              className="p-2 rounded-full hover:bg-accent transition-colors duration-200"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
           </div>
         </div>
+
+        {/* Mobile / Tablet Menu Dropdown */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden border-t border-border bg-card p-4 animate-slide-up">
+            <div className="flex flex-col gap-3">
+              <a href="#services" className="text-sm font-medium text-muted-foreground hover:text-primary py-2 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>{t('navServices')}</a>
+              <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary py-2 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>{t('navHowItWorks')}</a>
+              <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-primary py-2 transition-colors" onClick={() => setIsMobileMenuOpen(false)}>{t('navContact')}</a>
+              <div className="border-t border-border pt-3 mt-1 flex flex-col gap-2">
+                <Button variant="outline" size="sm" onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }} className="w-full">{t('login')}</Button>
+                <Button variant="hero" size="sm" onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }} className="w-full gap-2">
+                  <PlusCircle className="w-4 h-4" /> {t('navPostJob')}
+                </Button>
+                <button
+                  className="h-10 bg-[#FF8C00] hover:bg-orange-600 active:scale-[0.97] transition-all rounded-lg flex items-center justify-center gap-2 text-white font-semibold text-sm w-full"
+                  onClick={() => { navigate('/auth'); setIsMobileMenuOpen(false); }}
+                >
+                  <Briefcase className="w-4 h-4" /> {t('navFindWork')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-        <div className="max-w-6xl mx-auto px-4 py-16 md:py-28">
-          <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6 animate-fade-in">
-              <Bell size={16} />
-              Get Leads in Your Area
+      {/* ═══════════════════════════════════════════ */}
+      {/* HERO SECTION — Always visible on load        */}
+      {/* ═══════════════════════════════════════════ */}
+      <section className="snap-section relative overflow-hidden">
+        {/* Background Blobs */}
+        <div className="absolute inset-0 z-0 opacity-10 pointer-events-none">
+          <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-primary blur-[120px] animate-float"></div>
+          <div className="absolute bottom-[20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-secondary blur-[100px]" style={{ animation: 'float 4s ease-in-out 1.5s infinite' }}></div>
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto px-4 py-16 md:py-28 text-center">
+          {/* Badge — CSS animation, no scroll-reveal */}
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6 animate-scale-in">
+            <Bell size={16} />
+            {t('heroBadge')}
+          </div>
+
+          {/* Heading — CSS animation */}
+          <h1 className="text-4xl md:text-6xl font-extrabold text-foreground mb-8 tracking-tight leading-tight animate-slide-up">
+            {t('heroHeading')}
+          </h1>
+          <p className='m-5'>{t('heroSubtext')}</p>
+
+          {/* Search Bar — CSS animation */}
+          {/* <div className="relative group mb-10 w-full max-w-2xl mx-auto animate-slide-up" style={{ animationDelay: '0.15s', animationFillMode: 'both' }}>
+            <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+              <Search className="text-primary w-7 h-7" />
             </div>
-
-            <h1 className="text-3xl md:text-5xl font-extrabold text-foreground mb-4 animate-slide-up leading-tight">
-              Get All Nearby <span className="text-primary">Leads Instantly</span>
-            </h1>
-
-            <p className="text-base md:text-lg text-muted-foreground mb-8 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-              Get your Local Rent Agreement Leads Instantly
-              <br />
-              <strong>Connect with your local opportunities</strong>
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: '0.3s' }}>
-              <Button variant="hero" size="lg" onClick={() => navigate('/auth')} className="gap-2">
-                Start 15 Days Free Trial
-                <ArrowRight size={20} />
-              </Button>
+            <div className="flex items-center w-full h-16 md:h-20 pl-16 pr-6 rounded-2xl bg-card border-2 border-border shadow-xl shadow-primary/5 hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30 transition-all duration-500">
+              <span className="text-muted-foreground text-lg md:text-2xl w-full overflow-hidden whitespace-nowrap text-left flex items-center">
+                {t('heroSearchPrefix')}&nbsp;
+                <span className="text-foreground font-medium border-r-2 border-primary animate-cursor-blink h-7 flex items-center">
+                  {currentText}
+                </span>
+              </span>
             </div>
+          </div> */}
 
-            <p className="text-sm text-muted-foreground mt-6">
-              ✨ Free to join · 📍 Local leads only · ⚡ Instant alerts
-            </p>
+          {/* CTA — Get Started */}
+          <div className="animate-slide-up" style={{ animationDelay: '0.3s', animationFillMode: 'both' }}>
+            <Button
+              variant="hero"
+              size="lg"
+              className="h-14 md:h-16 gap-3 text-lg shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 hover:scale-[1.04] active:scale-[0.97] transition-all duration-300 px-10"
+              onClick={() => navigate('/auth')}
+            >
+              {t('heroGetStarted')}
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+          </div>
+
+          <p className="text-sm text-muted-foreground mt-6 animate-slide-up" style={{ animationDelay: '0.45s', animationFillMode: 'both' }}>
+            {t('heroTagline')}
+          </p>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* SERVICE GRID — All 11 Categories            */}
+      {/* ═══════════════════════════════════════════ */}
+      <section id="services" className="snap-section py-16 md:py-20 bg-gradient-to-b from-background to-accent/10">
+        <div className="max-w-7xl mx-auto px-4 md:px-12">
+          <div className="scroll-reveal flex flex-col md:flex-row items-start md:items-end justify-between mb-10 gap-4" style={{ transitionDelay: '0s' }}>
+            <div>
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-2">{t('servicesTitle')}</h2>
+              <p className="text-muted-foreground">{t('servicesSubtitle')}</p>
+            </div>
+            <button
+              className="text-base font-semibold text-primary hover:text-primary/80 transition-colors flex items-center gap-1 group"
+              onClick={() => navigate('/auth')}
+            >
+              {t('servicesSeeAll')}
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+            {SERVICE_CATEGORIES.map((service, idx) => (
+              <div
+                key={service.titleKey}
+                className="scroll-reveal group relative overflow-hidden rounded-2xl h-48 md:h-64 cursor-pointer shadow-md hover:shadow-2xl transition-all duration-500"
+                style={{ transitionDelay: `${idx * 0.06}s` }}
+                onClick={() => navigate('/auth')}
+              >
+                <img
+                  alt={t(service.titleKey)}
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  src={service.image}
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-60 transition-opacity duration-500"></div>
+                <div className="absolute bottom-4 left-4 right-4">
+                  <span className="text-white font-bold text-base md:text-xl block mb-1 group-hover:translate-x-1 transition-transform duration-300">{t(service.titleKey)}</span>
+                  <span className="text-slate-200 text-xs md:text-sm hidden md:block opacity-0 group-hover:opacity-100 transition-opacity duration-300">{t(service.subtitleKey)}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Video Section */}
-      <section className="py-12 bg-background">
+      {/* ═══════════════════════════════════════════ */}
+      {/* TRUST SECTION — Testimonial Card            */}
+      {/* ═══════════════════════════════════════════ */}
+      <section className="snap-section py-12 md:py-16">
+        <div className="max-w-7xl mx-auto px-4 md:px-12 scroll-reveal">
+          <div className="relative w-full rounded-3xl overflow-hidden bg-card shadow-2xl border border-border hover:shadow-3xl transition-shadow duration-500">
+            <div className="grid md:grid-cols-2 h-auto md:h-80">
+              <div className="relative h-64 md:h-full order-2 md:order-1 overflow-hidden">
+                <img
+                  alt="Service provider shaking hands with client"
+                  className="absolute inset-0 w-full h-full object-cover object-center hover:scale-105 transition-transform duration-700"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuAT5_YGy6TcpcWv-ME-jtfu-BkCNJxCNwCMactEeRUNqeiVhDNlqqPeanfaf5i1nnqB1AFVNfx2pheYU3dDr7jgTMfrFxZksv8ozO370U2McXrGkJJbvdFLStHRVrCnYEGzLiQyqvTKYg0_V0tiBYyQ4lF4Yv6ilpkWIrRU_vAdsQiXJ76mo2-HOT80PsG26QYfiE1w-loSWjqgmhW00BXg9DX35R1zjGWgENqVdn197HL6h2Fcj7ZShrIuHIGbkDmMI5UA4DE7D9XX"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-card/80 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-transparent"></div>
+              </div>
+              <div className="p-8 md:p-12 flex flex-col justify-center order-1 md:order-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">{t('trustBadge')}</span>
+                  <div className="flex text-yellow-400 gap-0.5">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className="w-5 h-5 fill-current" />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-foreground font-bold text-2xl md:text-3xl leading-tight mb-4">
+                  {t('trustQuote')}
+                </p>
+                <p className="text-muted-foreground text-lg">
+                  {t('trustCommunity')}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* VIDEO SECTION — Tutorial                    */}
+      {/* ═══════════════════════════════════════════ */}
+      {/* <section className="snap-section py-12 bg-background">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-8">
+          <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-8 scroll-reveal">
             How to create an account step-by-step
           </h2>
-          <div className="relative aspect-video bg-muted rounded-2xl overflow-hidden border border-border shadow-lg">
+          <div className="relative aspect-video bg-muted rounded-2xl overflow-hidden border border-border shadow-lg scroll-reveal hover:shadow-2xl transition-shadow duration-500">
             <video
               className="w-full h-full object-cover"
               controls
@@ -103,44 +386,47 @@ const Index: React.FC = () => {
               Your browser does not support the video tag.
             </video>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
+          <p className="text-sm text-muted-foreground mt-4 scroll-reveal">
             📹 Watch the complete tutorial • Click to play/pause • Use fullscreen for better viewing
           </p>
         </div>
-      </section>
+      </section> */}
 
-      {/* Features Section - The Main Promise */}
-      <section className="py-20 bg-gradient-to-b from-background to-accent/10">
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* WHY JOIN — Features Section                 */}
+      {/* ═══════════════════════════════════════════ */}
+      <section className="snap-section py-20 bg-gradient-to-b from-accent/10 to-background">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16 scroll-reveal">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Why Join Leads Nearby?
+              {t('featuresTitle')}
             </h2>
             <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
-              Simple features. Real leads. Real business.
+              {t('featuresSubtitle')}
             </p>
           </div>
 
-          {/* Main Feature - Get Alerts */}
-          <div className="mb-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-3xl p-8 md:p-12 border border-primary/20">
+          {/* Main Feature */}
+          <div className="mb-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-3xl p-8 md:p-12 border border-primary/20 scroll-reveal">
             <div className="grid md:grid-cols-2 gap-8 items-center">
               <div>
                 <div className="inline-flex items-center gap-3 bg-primary text-primary-foreground px-4 py-2 rounded-full text-sm font-semibold mb-6">
                   <Bell size={20} />
-                  #1 Feature
+                  {t('featMainBadge')}
                 </div>
                 <h3 className="text-3xl font-bold text-foreground mb-4">
-                  Get a Notification When Someone Needs Your Help Nearby
+                  {t('featMainTitle')}
                 </h3>
                 <p className="text-muted-foreground text-lg mb-6">
-                  A customer looking for your service comes in your area? You get an instant alert on your phone. No waiting. No scrolling. Just real leads.
+                  {t('featMainDesc')}
                 </p>
                 <ul className="space-y-3">
                   {[
-                    '📱 Instant WhatsApp alert',
-                    '📍 Only leads near your location',
-                    '⚡ Click to claim in seconds',
-                    '💬 Direct chat with customer'
+                    t('featBullet1'),
+                    t('featBullet2'),
+                    t('featBullet3'),
+                    t('featBullet4')
                   ].map((item, idx) => (
                     <li key={idx} className="flex items-center gap-3 text-foreground font-medium">
                       <div className="w-2 h-2 bg-primary rounded-full" />
@@ -149,60 +435,37 @@ const Index: React.FC = () => {
                   ))}
                 </ul>
               </div>
-              <div className="bg-card rounded-2xl p-8 border border-border">
+              <div className="bg-card rounded-2xl p-8 border border-border hover:shadow-xl transition-shadow duration-500">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-3 p-4 bg-green-50 border border-green-200 rounded-lg dark:bg-green-950/30 dark:border-green-800">
                     <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-sm font-medium text-green-900">New Lead: Rent Agreement - 2km Away</span>
+                    <span className="text-sm font-medium text-green-900 dark:text-green-300">{t('featLiveDemo')}</span>
                   </div>
                   <div className="text-center text-2xl font-bold text-primary">
-                    Tap to Claim Now
+                    {t('featClaimNow')}
                   </div>
                   <div className="text-xs text-muted-foreground text-center">
-                    You're the first to see this lead
+                    {t('featFirstToSee')}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Other Features Grid */}
+          {/* Feature Grid */}
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                icon: <MapPin className="text-primary" size={28} />,
-                title: 'Only Local Leads',
-                description: 'Set your area. Get leads nearby. No wasting time on far away jobs.'
-              },
-              {
-                icon: <Users className="text-secondary" size={28} />,
-                title: 'Real People, Real Leads',
-                description: 'No bots. No timepass. Only verified customers who need your help.'
-              },
-              {
-                icon: <CheckCircle className="text-primary" size={28} />,
-                title: 'Easy Proof',
-                description: 'Upload photos of completed work. Build trust. Get more leads.'
-              },
-              {
-                icon: <Shield className="text-secondary" size={28} />,
-                title: 'Safe & Verified',
-                description: 'All users are verified. Your data is safe. Trust the platform.'
-              },
-              {
-                icon: <Zap className="text-primary" size={28} />,
-                title: 'First Come, First Serve',
-                description: 'Fast people earn more. Be quick. Claim the lead first.'
-              },
-              {
-                icon: <Phone className="text-secondary" size={28} />,
-                title: 'Direct Contact',
-                description: 'Get customer phone number. Talk directly. No middleman.'
-              }
+              { icon: <MapPin className="text-primary" size={28} />, title: t('featLocalLeads'), description: t('featLocalLeadsDesc') },
+              { icon: <Users className="text-secondary" size={28} />, title: t('featRealPeople'), description: t('featRealPeopleDesc') },
+              { icon: <CheckCircle className="text-primary" size={28} />, title: t('featEasyProof'), description: t('featEasyProofDesc') },
+              { icon: <Shield className="text-secondary" size={28} />, title: t('featSafeVerified'), description: t('featSafeVerifiedDesc') },
+              { icon: <Zap className="text-primary" size={28} />, title: t('featFirstCome'), description: t('featFirstComeDesc') },
+              { icon: <Phone className="text-secondary" size={28} />, title: t('featDirectContact'), description: t('featDirectContactDesc') }
             ].map((feature, idx) => (
               <div
                 key={idx}
-                className="bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all hover:border-primary/50"
+                className="scroll-reveal bg-card border border-border rounded-2xl p-6 hover:shadow-xl hover:border-primary/50 hover:-translate-y-1 transition-all duration-500"
+                style={{ transitionDelay: `${idx * 0.08}s` }}
               >
                 <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4">
                   {feature.icon}
@@ -215,36 +478,30 @@ const Index: React.FC = () => {
         </div>
       </section>
 
-      {/* How It Works */}
-      <section className="py-20 bg-accent/20">
+      {/* ═══════════════════════════════════════════ */}
+      {/* HOW IT WORKS — 3 Steps                      */}
+      {/* ═══════════════════════════════════════════ */}
+      <section id="how-it-works" className="snap-section py-20 bg-accent/20">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
+          <div className="text-center mb-16 scroll-reveal">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              How It Works - 3 Simple Steps
+              {t('howTitle')}
             </h2>
-            <p className="text-muted-foreground text-base">Start earning in minutes, not days</p>
+            <p className="text-muted-foreground text-base">{t('howSubtitle')}</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              {
-                step: '1',
-                title: 'Sign Up (2 minutes)',
-                description: 'Download the app. Enter your phone number. Done!'
-              },
-              {
-                step: '2',
-                title: 'Set Your Location (1 minute)',
-                description: 'Show where you work. How far can you travel? What service you offer?'
-              },
-              {
-                step: '3',
-                title: 'Get Alerts & Earn (Every day)',
-                description: 'Get notified when a customer needs you. Accept. Meet. Earn. Repeat.'
-              }
+              { step: '1', title: t('howStep1Title'), description: t('howStep1Desc') },
+              { step: '2', title: t('howStep2Title'), description: t('howStep2Desc') },
+              { step: '3', title: t('howStep3Title'), description: t('howStep3Desc') }
             ].map((step, idx) => (
-              <div key={idx} className="relative text-center">
-                <div className="w-16 h-16 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-4">
+              <div
+                key={idx}
+                className="scroll-reveal relative text-center"
+                style={{ transitionDelay: `${idx * 0.12}s` }}
+              >
+                <div className="w-16 h-16 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-3xl font-bold mx-auto mb-4 hover:scale-110 hover:shadow-lg hover:shadow-primary/30 transition-all duration-300">
                   {step.step}
                 </div>
                 <h3 className="text-xl font-semibold text-foreground mb-2">{step.title}</h3>
@@ -258,241 +515,222 @@ const Index: React.FC = () => {
         </div>
       </section>
 
-      {/* Posters Section */}
-      <section className="py-20 bg-background">
+      {/* ═══════════════════════════════════════════ */}
+      {/* POSTERS — Visual Highlight Section           */}
+      {/* ═══════════════════════════════════════════ */}
+      <section className="snap-section py-20 bg-background">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 scroll-reveal">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              See What's Possible
+              {t('postersTitle')}
             </h2>
-            <p className="text-muted-foreground text-lg">Real stories. Real earnings.</p>
+            <p className="text-muted-foreground text-lg">{t('postersSubtitle')}</p>
           </div>
 
-          {/* Poster Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-            {/* Poster 1 - Rent Agreement Lead */}
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-3xl overflow-hidden shadow-lg border-2 border-orange-200 h-80">
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center">
-                  <div className="text-5xl mb-4">🏠</div>
-                  <h3 className="text-2xl font-bold text-orange-900 mb-2">Rent Agreement Lead</h3>
-                  <p className="text-orange-800">New business in your area, 2km away</p>
+            {[
+              { emoji: '🏠', title: t('posterGetServices'), subtitle: t('posterGetServicesDesc'), gradient: 'from-orange-50 to-orange-100 dark:from-orange-950/30 dark:to-orange-900/20', border: 'border-orange-200 dark:border-orange-800', titleColor: 'text-orange-900 dark:text-orange-200', subtitleColor: 'text-orange-800 dark:text-orange-300' },
+              { emoji: '💰', title: t('posterEarnMoney'), subtitle: t('posterEarnMoneyDesc'), gradient: 'from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20', border: 'border-green-200 dark:border-green-800', titleColor: 'text-green-900 dark:text-green-200', subtitleColor: 'text-green-800 dark:text-green-300' },
+              { emoji: '📱', title: t('posterInstantAlert'), subtitle: t('posterInstantAlertDesc'), gradient: 'from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20', border: 'border-blue-200 dark:border-blue-800', titleColor: 'text-blue-900 dark:text-blue-200', subtitleColor: 'text-blue-800 dark:text-blue-300' },
+              { emoji: '✅', title: t('posterNoTimepass'), subtitle: t('posterNoTimepassDesc'), gradient: 'from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20', border: 'border-purple-200 dark:border-purple-800', titleColor: 'text-purple-900 dark:text-purple-200', subtitleColor: 'text-purple-800 dark:text-purple-300' },
+            ].map((poster, idx) => (
+              <div
+                key={idx}
+                className={`scroll-reveal bg-gradient-to-br ${poster.gradient} rounded-3xl overflow-hidden shadow-lg border-2 ${poster.border} h-80 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500`}
+                style={{ transitionDelay: `${idx * 0.1}s` }}
+              >
+                <div className="h-full flex items-center justify-center p-6">
+                  <div className="text-center">
+                    <div className="text-5xl mb-4 hover:scale-125 transition-transform duration-300 inline-block">{poster.emoji}</div>
+                    <h3 className={`text-2xl font-bold ${poster.titleColor} mb-2`}>{poster.title}</h3>
+                    <p className={poster.subtitleColor}>{poster.subtitle}</p>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Poster 2 - Service Provider Success */}
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-3xl overflow-hidden shadow-lg border-2 border-green-200 h-80">
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center">
-                  <div className="text-5xl mb-4">💰</div>
-                  <h3 className="text-2xl font-bold text-green-900 mb-2">Earn Real Money</h3>
-                  <p className="text-green-800">Complete work, get paid instantly</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Poster 3 - Real Time Notification */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl overflow-hidden shadow-lg border-2 border-blue-200 h-80">
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center">
-                  <div className="text-5xl mb-4">📱</div>
-                  <h3 className="text-2xl font-bold text-blue-900 mb-2">Instant Alert</h3>
-                  <p className="text-blue-800">Get notified the moment a lead comes</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Poster 4 - No Timepass */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-3xl overflow-hidden shadow-lg border-2 border-purple-200 h-80">
-              <div className="h-full flex items-center justify-center p-6">
-                <div className="text-center">
-                  <div className="text-5xl mb-4">✅</div>
-                  <h3 className="text-2xl font-bold text-purple-900 mb-2">No Timepass</h3>
-                  <p className="text-purple-800">Only real, verified leads - no fake messages</p>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-gradient-to-b from-background to-accent/5">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Simple Pricing. No Hidden Charges.
-            </h2>
-            <p className="text-muted-foreground text-lg">Start free. Upgrade anytime.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {/* Free Plan */}
-            <div className="bg-card border border-border rounded-2xl p-8">
-              <h3 className="text-2xl font-bold text-foreground mb-2">Free Plan</h3>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-foreground">₹0</span>
-                <span className="text-muted-foreground">/month</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {[
-                  '✓ View leads near you',
-                  '✓ Get basic notifications',
-                  '✓ Limited leads per day'
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-muted-foreground">
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Button variant="outline" className="w-full" onClick={() => navigate('/auth')}>
-                Start Free
-              </Button>
-            </div>
-
-            {/* Premium Plan */}
-            <div className="bg-gradient-to-br from-primary/10 to-secondary/10 border-2 border-primary rounded-2xl p-8 relative">
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-sm font-semibold">
-                Best Value
-              </div>
-              <h3 className="text-2xl font-bold text-foreground mb-2">Premium Plan</h3>
-              <div className="mb-6">
-                <span className="text-4xl font-bold text-foreground">₹499</span>
-                <span className="text-muted-foreground">/month</span>
-              </div>
-              <ul className="space-y-3 mb-8">
-                {[
-                  '✓ Get ALL leads in your area',
-                  '✓ Instant WhatsApp alerts',
-                  '✓ See customer phone number',
-                  '✓ Accept unlimited leads',
-                  '✓ Priority support'
-                ].map((feature, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-foreground font-medium">
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-              <Button variant="hero" className="w-full" onClick={() => navigate('/auth')}>
-                Upgrade to Premium
-              </Button>
-              <p className="text-xs text-muted-foreground text-center mt-4">
-                Auto-renews every 30 days. Cancel anytime.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* About Bisugen */}
-      <section className="py-20 bg-accent/20">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <Globe className="text-primary-foreground" size={40} />
-          </div>
-          <h2 className="text-3xl font-bold text-foreground mb-4">Powered by Bisugen Technologies</h2>
-          <p className="text-muted-foreground text-lg mb-6 max-w-2xl mx-auto">
-            Bisugen Technologies is a leading software development company specializing in innovative digital solutions.
-            With expertise in mobile apps, web platforms, and enterprise software, we're committed to transforming
-            how businesses connect with their customers through cutting-edge technology.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-2">
-              <CheckCircle size={16} className="text-primary" />
-              10+ Years Experience
-            </span>
-            <span className="flex items-center gap-2">
-              <CheckCircle size={16} className="text-primary" />
-              500+ Projects Delivered
-            </span>
-            <span className="flex items-center gap-2">
-              <CheckCircle size={16} className="text-primary" />
-              50+ Team Members
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* Contact Section */}
-      <section className="py-20 bg-background">
+      {/* ═══════════════════════════════════════════ */}
+      {/* CONTACT SECTION                             */}
+      {/* ═══════════════════════════════════════════ */}
+      <section id="contact" className="snap-section py-20 bg-background">
         <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 scroll-reveal">
             <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Get in Touch
+              {t('contactTitle')}
             </h2>
-            <p className="text-muted-foreground text-lg">Have questions? We're here to help</p>
+            <p className="text-muted-foreground text-lg">{t('contactSubtitle')}</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-card border border-border rounded-2xl p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Phone className="text-primary" size={24} />
+            {[
+              { icon: <Phone className="text-primary" size={24} />, title: t('contactPhone'), desc: t('contactPhoneDesc'), link: 'tel:+919309282749', linkText: '+91 9309282749', bg: 'bg-primary/10' },
+              { icon: <Mail className="text-secondary" size={24} />, title: t('contactEmail'), desc: t('contactEmailDesc'), link: 'mailto:bisugentech@gmail.com', linkText: 'bisugentech@gmail.com', bg: 'bg-secondary/10' },
+              { icon: <Globe className="text-primary" size={24} />, title: t('contactWebsite'), desc: t('contactWebsiteDesc'), link: 'https://www.bisugentech.in', linkText: 'www.bisugentech.in', bg: 'bg-primary/10', external: true },
+            ].map((contact, idx) => (
+              <div
+                key={idx}
+                className="scroll-reveal bg-card border border-border rounded-2xl p-6 text-center hover:shadow-xl hover:-translate-y-1 transition-all duration-500"
+                style={{ transitionDelay: `${idx * 0.1}s` }}
+              >
+                <div className={`w-12 h-12 ${contact.bg} rounded-xl flex items-center justify-center mx-auto mb-4`}>
+                  {contact.icon}
+                </div>
+                <h3 className="font-semibold text-foreground mb-2">{contact.title}</h3>
+                <p className="text-muted-foreground text-sm mb-2">{contact.desc}</p>
+                <a
+                  href={contact.link}
+                  {...(contact.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  className="text-primary font-medium hover:underline"
+                >
+                  {contact.linkText}
+                </a>
               </div>
-              <h3 className="font-semibold text-foreground mb-2">Phone</h3>
-              <p className="text-muted-foreground text-sm mb-2">Mon-Sat: 9AM - 6PM</p>
-              <a href="tel:+919309282749" className="text-primary font-medium hover:underline">
-                +91 9309282749
-              </a>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl p-6 text-center">
-              <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Mail className="text-secondary" size={24} />
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Email</h3>
-              <p className="text-muted-foreground text-sm mb-2">We reply within 24 hours</p>
-              <a href="mailto:bisugentech@gmail.com" className="text-primary font-medium hover:underline">
-                bisugentech@gmail.com
-              </a>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl p-6 text-center">
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Globe className="text-primary" size={24} />
-              </div>
-              <h3 className="font-semibold text-foreground mb-2">Website</h3>
-              <p className="text-muted-foreground text-sm mb-2">Visit our company site</p>
-              <a href="https://www.bisugentech.in" target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline">
-                www.bisugentech.in
-              </a>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-br from-primary/10 to-secondary/10">
-        <div className="max-w-4xl mx-auto px-4 text-center">
+      {/* ═══════════════════════════════════════════ */}
+      {/* CTA SECTION                                 */}
+      {/* ═══════════════════════════════════════════ */}
+      <section className="snap-section py-20 bg-gradient-to-br from-primary/10 to-secondary/10">
+        <div className="max-w-4xl mx-auto px-4 text-center scroll-reveal">
           <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-            Ready to Get Started?
+            {t('ctaTitle')}
           </h2>
           <p className="text-muted-foreground text-lg mb-8 max-w-2xl mx-auto">
-            Join thousands of service providers and customers connecting every day on Leads Nearby
+            {t('ctaSubtitle')}
           </p>
-          <Button variant="hero" size="lg" onClick={() => navigate('/auth')} className="gap-2">
-            Create Free Account
+          <Button
+            variant="hero"
+            size="lg"
+            onClick={() => navigate('/auth')}
+            className="gap-2 hover:scale-[1.04] active:scale-[0.97] shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40 transition-all duration-300"
+          >
+            {t('ctaButton')}
             <ArrowRight size={20} />
           </Button>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ═══════════════════════════════════════════ */}
+      {/* FAQ / QnA SECTION                            */}
+      {/* ═══════════════════════════════════════════ */}
+      <section id="faq" className="py-20 bg-background">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="text-center mb-12 scroll-reveal">
+            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+              {t('faqTitle')}
+            </h2>
+            <p className="text-muted-foreground text-lg">{t('faqSubtitle')}</p>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                question: t('faqQ1'),
+                answer: t('faqA1')
+              },
+              {
+                question: t('faqQ2'),
+                answer: t('faqA2'),
+                hasVideo: true,
+                videoUrl: '/assets/account_create_video.mp4'
+              },
+              {
+                question: t('faqQ3'),
+                answer: t('faqA3')
+              },
+              {
+                question: t('faqQ4'),
+                answer: t('faqA4')
+              },
+              {
+                question: t('faqQ5'),
+                answer: t('faqA5')
+              },
+              {
+                question: t('faqQ6'),
+                answer: t('faqA6')
+              },
+              {
+                question: t('faqQ7'),
+                answer: t('faqA7')
+              }
+            ].map((faq, idx) => (
+              <div
+                key={idx}
+                className="scroll-reveal bg-card border border-border rounded-2xl overflow-hidden transition-all duration-300 hover:border-primary/30"
+                style={{ transitionDelay: `${idx * 0.06}s` }}
+              >
+                <button
+                  className="w-full flex items-center justify-between p-5 md:p-6 text-left gap-4"
+                  onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
+                  aria-expanded={openFaqIndex === idx}
+                >
+                  <span className="text-base md:text-lg font-semibold text-foreground">{faq.question}</span>
+                  <span className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${openFaqIndex === idx
+                    ? 'bg-primary text-primary-foreground rotate-0'
+                    : 'bg-accent text-muted-foreground rotate-0'
+                    }`}>
+                    {openFaqIndex === idx ? <Minus size={18} /> : <Plus size={18} />}
+                  </span>
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-400 ease-in-out ${openFaqIndex === idx ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                    }`}
+                >
+                  <div className="px-5 md:px-6 pb-5 md:pb-6">
+                    <p className="text-muted-foreground leading-relaxed">{faq.answer}</p>
+                    {faq.hasVideo && faq.videoUrl && (
+                      <div className="mt-4">
+                        <div className="relative aspect-video bg-muted rounded-xl overflow-hidden border border-border shadow-md">
+                          <video
+                            className="w-full h-full object-cover"
+                            controls
+                            controlsList="nodownload"
+                            muted
+                            playsInline
+                            preload="metadata"
+                          >
+                            <source src={faq.videoUrl} type="video/mp4" />
+                            <track kind="captions" srcLang="en" label="English" />
+                          </video>
+                        </div>
+                        <p className="text-sm text-primary font-medium mt-2 flex items-center gap-1">
+                          <PlayCircle size={16} /> {t('faqVideoLabel')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════ */}
+      {/* FOOTER                                      */}
+      {/* ═══════════════════════════════════════════ */}
       <footer className="border-t border-border bg-card/50 py-8">
         <div className="max-w-6xl mx-auto px-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
+          <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-sm font-bold text-primary-foreground">LN</span>
+              <Navigation className="w-4 h-4 text-primary-foreground fill-current" />
             </div>
             <span className="font-bold text-foreground">Leads Nearby</span>
           </div>
           <p className="text-sm text-muted-foreground mb-2">
-            © 2026 Bisugen Technologies. All rights reserved.
+            {t('footerCopyright')}
           </p>
           <div className="flex justify-center gap-6 text-sm text-muted-foreground">
-            <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
-            <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
-            <a href="mailto:support@leads near by.com" className="hover:text-primary transition-colors">Contact Us</a>
+            <Link to="/privacy-policy" className="hover:text-primary transition-colors duration-300">{t('footerPrivacy')}</Link>
+            <Link to="/terms-of-service" className="hover:text-primary transition-colors duration-300">{t('footerTerms')}</Link>
+            <a href="mailto:bisugentech@gmail.com" className="hover:text-primary transition-colors duration-300">{t('footerContactUs')}</a>
           </div>
         </div>
       </footer>

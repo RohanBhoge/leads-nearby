@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Camera, User, Phone, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EditProfileDialogProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ interface EditProfileDialogProps {
 
 const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ isOpen, onClose }) => {
     const { user, profile, refreshProfile } = useAuth();
+    const { tc } = useLanguage();
     const { toast } = useToast();
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -228,7 +230,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ isOpen, onClose }
                                     <option value="">Select Category</option>
                                     {categories.map((cat) => (
                                         <option key={cat.id} value={cat.id}>
-                                            {cat.name}
+                                            {tc(cat.name)}
                                         </option>
                                     ))}
                                 </select>
@@ -248,7 +250,7 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ isOpen, onClose }
                                         .filter((sc) => sc.category_id === formData.category_id)
                                         .map((sc) => (
                                             <option key={sc.id} value={sc.id}>
-                                                {sc.name}
+                                                {tc(sc.name)}
                                             </option>
                                         ))}
                                 </select>

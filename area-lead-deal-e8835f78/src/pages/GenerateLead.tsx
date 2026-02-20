@@ -61,7 +61,7 @@ const GenerateLead: React.FC = () => {
   const [bypassVerification, setBypassVerification] = useState(false);
 
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, tc } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -229,7 +229,7 @@ const GenerateLead: React.FC = () => {
     <div className="min-h-screen bg-background pb-24">
       <Header title={t('generateLead')} showBack />
 
-      <main className="px-4 py-6 max-w-md mx-auto">
+      <main className="px-4 py-6 max-w-2xl mx-auto">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Category Selection */}
           <div className="space-y-2 animate-slide-up">
@@ -244,7 +244,7 @@ const GenerateLead: React.FC = () => {
               <SelectContent>
                 {categories.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
-                    {cat.name}
+                    {tc(cat.name)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -265,7 +265,7 @@ const GenerateLead: React.FC = () => {
                 <SelectContent>
                   {filteredSubCategories.map((subCat) => (
                     <SelectItem key={subCat.id} value={subCat.id}>
-                      {subCat.name}
+                      {tc(subCat.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

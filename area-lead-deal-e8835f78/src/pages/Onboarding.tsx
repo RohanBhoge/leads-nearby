@@ -103,7 +103,7 @@ const Onboarding: React.FC = () => {
         <LanguageToggle />
       </div>
 
-      <div className="flex-1 px-6 py-8 max-w-md mx-auto w-full">
+      <div className="flex-1 px-6 py-8 max-w-2xl mx-auto w-full">
         {step === 1 && (
           <div className="space-y-6 animate-slide-up">
             <div className="text-center mb-8">

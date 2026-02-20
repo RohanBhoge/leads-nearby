@@ -52,7 +52,7 @@ const Auth: React.FC = () => {
   const [referralCode, setReferralCode] = useState('');
 
   const { signIn, signUp, user } = useAuth();
-  const { t } = useLanguage();
+  const { t, tc } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -295,12 +295,12 @@ const Auth: React.FC = () => {
                       <Layers className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground z-10" size={20} />
                       <Select onValueChange={setCategoryId} value={categoryId}>
                         <SelectTrigger className="pl-12 h-14 text-base rounded-xl bg-card border-border w-full">
-                          <SelectValue placeholder="Select Category" />
+                          <SelectValue placeholder={tc('Select Category') === 'Select Category' ? 'Select Category' : tc('Select Category')} />
                         </SelectTrigger>
                         <SelectContent>
                           {categories.map((cat) => (
                             <SelectItem key={cat.id} value={cat.id}>
-                              {cat.name}
+                              {tc(cat.name)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -318,14 +318,14 @@ const Auth: React.FC = () => {
                         disabled={!categoryId}
                       >
                         <SelectTrigger className="pl-12 h-14 text-base rounded-xl bg-card border-border w-full">
-                          <SelectValue placeholder="Select Subcategory" />
+                          <SelectValue placeholder={tc('Select Subcategory') === 'Select Subcategory' ? 'Select Subcategory' : tc('Select Subcategory')} />
                         </SelectTrigger>
                         <SelectContent>
                           {subCategories
                             .filter(sc => sc.category_id === categoryId)
                             .map((sc) => (
                               <SelectItem key={sc.id} value={sc.id}>
-                                {sc.name}
+                                {tc(sc.name)}
                               </SelectItem>
                             ))
                           }
