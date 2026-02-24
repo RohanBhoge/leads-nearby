@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   MapPin, Phone, Clock, User, FileText, CheckCircle, XCircle,
-  Camera, Loader2, MessageSquare, Upload, MessageCircle, AlertTriangle, Star, Eye, Hash
+  Camera, Loader2, MessageSquare, Upload, MessageCircle, AlertTriangle, Star, Eye, Hash,
+  Tag, IndianRupee, Image as ImageIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,13 +34,17 @@ interface Lead {
   id: string;
   lead_code: string | null;
   categories: { name: string } | null;
+  sub_categories: { name: string } | null;
   location_lat: number;
   location_long: number;
   location_address: string | null;
-  address?: string | null; // Add optional address to satisfy types if needed
+  address?: string | null;
   customer_name: string | null;
   customer_phone: string;
   lead_generator_phone: string | null;
+  description?: string | null;
+  images?: string[] | null;
+  amount?: number | null;
   status: string;
   created_at: string;
   claimed_at: string | null;
@@ -65,6 +70,7 @@ const LeadDetails: React.FC = () => {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [generatorPhone, setGeneratorPhone] = useState('');
   const [claimerName, setClaimerName] = useState('');
+  const [generatorName, setGeneratorName] = useState('');
   const [claimerRating, setClaimerRating] = useState({ average: 0, count: 0 });
   const [hasRated, setHasRated] = useState(false);
 
@@ -86,7 +92,7 @@ const LeadDetails: React.FC = () => {
 
     const { data, error } = await supabase
       .from('leads')
-      .select('*, categories(name)')
+      .select('*, categories(name), sub_categories(name)')
       .eq('id', id)
       .maybeSingle();
 
@@ -102,16 +108,19 @@ const LeadDetails: React.FC = () => {
 
     setLead(data as unknown as Lead);
 
-    // Fetch generator profile for phone
+    // Fetch generator profile for phone and name
     if (data.created_by) {
-      const { data: profile } = await supabase
+      const { data: creatorProfile } = await supabase
         .from('profiles')
-        .select('phone')
+        .select('phone, user_name')
         .eq('id', data.created_by)
         .maybeSingle();
 
-      if ((profile as any)?.phone) {
-        setGeneratorPhone((profile as any).phone);
+      if ((creatorProfile as any)?.phone) {
+        setGeneratorPhone((creatorProfile as any).phone);
+      }
+      if ((creatorProfile as any)?.user_name) {
+        setGeneratorName((creatorProfile as any).user_name);
       }
     }
 
@@ -369,10 +378,10 @@ const LeadDetails: React.FC = () => {
           {t(lead.status)}
         </div>
 
-        {/* Service Type Card */}
-        <div className="bg-card border border-border rounded-2xl p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+        {/* Service Type Card with Category & Subcategory */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center shrink-0">
               <FileText className="text-primary" size={24} />
             </div>
             <div>
@@ -384,85 +393,160 @@ const LeadDetails: React.FC = () => {
               </p>
             </div>
           </div>
+          {/* Category & Subcategory Badges */}
+          <div className="flex flex-wrap items-center gap-2">
+            {lead.categories?.name && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                <Tag size={14} />
+                {lead.categories.name}
+              </span>
+            )}
+            {lead.sub_categories?.name && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/10 text-secondary text-sm font-medium">
+                {lead.sub_categories.name}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Location - Visible for subscribed/claimed/generated users */}
+        {/* Creator Info Card */}
         {(isClaimer || isGenerator || profile?.is_subscribed) && (
-          <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="font-semibold text-foreground flex items-center gap-2 mb-3">
+              <User size={18} className="text-primary" />
+              Lead Creator
+            </h3>
+            <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User size={18} className="text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">
+                  {lead.customer_name || generatorName || 'Unknown'}
+                </p>
+                {isGenerator && (
+                  <p className="text-xs text-muted-foreground">{lead.customer_phone}</p>
+                )}
+                {isClaimer && lead.customer_phone && (
+                  <p className="text-xs text-muted-foreground">{lead.customer_phone}</p>
+                )}
+              </div>
+              {(isClaimer || isGenerator) && lead.customer_phone && (
+                <a href={`tel:${lead.customer_phone}`}>
+                  <Button variant="outline" size="icon" className="shrink-0 rounded-full w-9 h-9">
+                    <Phone size={16} className="text-primary" />
+                  </Button>
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Description / Notes */}
+        {(lead.description || lead.notes) && (
+          <div className="bg-card border border-border rounded-2xl p-5">
             <div className="flex items-start gap-3">
-              <MapPin className="text-primary mt-1 shrink-0" size={20} />
+              <FileText className="text-primary mt-0.5 shrink-0" size={18} />
               <div>
-                <h3 className="font-semibold text-foreground">{t('location')}</h3>
+                <h3 className="font-semibold text-foreground mb-1">Description</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {lead.description || lead.notes}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Lead Images */}
+        {lead.images && lead.images.length > 0 && (
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <ImageIcon className="text-primary" size={18} />
+              <h3 className="font-semibold text-foreground">Attached Images</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {lead.images.map((img, i) => (
+                <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={img}
+                    alt={`Lead image ${i + 1}`}
+                    className="w-full h-36 object-cover rounded-lg border border-border hover:opacity-80 transition-opacity cursor-pointer"
+                  />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Location */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <div className="flex items-start gap-3">
+            <MapPin className="text-primary mt-0.5 shrink-0" size={18} />
+            <div>
+              <h3 className="font-semibold text-foreground">{t('location')}</h3>
+              {(isClaimer || isGenerator || profile?.is_subscribed) ? (
                 <p className="text-sm text-muted-foreground mt-1">
                   {lead.address || lead.location_address || 'No address provided'}
                 </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Location - Blurred for non-subscribed users unless claimed/generated */}
-        {(!profile?.is_subscribed && !isClaimer && !isGenerator) && (
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-start gap-3">
-              <MapPin className="text-primary mt-1 shrink-0" size={20} />
-              <div>
-                <h3 className="font-semibold text-foreground">{t('location')}</h3>
+              ) : (
                 <p className="text-sm text-muted-foreground mt-1 blur-sm select-none">
                   {lead.location_address ? lead.location_address.split(',')[0] + '...' : 'Location details hidden'}
                 </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Amount / Budget */}
+        {lead.amount && (
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <div className="flex items-start gap-3">
+              <IndianRupee className="text-primary mt-0.5 shrink-0" size={18} />
+              <div>
+                <h3 className="font-semibold text-foreground">Budget / Amount</h3>
+                <p className="text-sm text-muted-foreground mt-1">₹{lead.amount}</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* Customer Info - Only for claimer, generator, or subscribed users */}
-        {(isClaimer || isGenerator || profile?.is_subscribed) && (
-          <div className="bg-card border border-border rounded-2xl p-4 space-y-3">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <User size={18} className="text-primary" />
-              Customer Details
-            </h3>
-
-            {lead.customer_name && (
-              <p className="text-sm text-foreground">{lead.customer_name}</p>
-            )}
-
-            {/* Customer phone only for generator */}
-            {isGenerator && (
-              <div className="flex items-center gap-2">
-                <Phone size={16} className="text-muted-foreground" />
-                <span className="text-sm">{lead.customer_phone}</span>
-              </div>
-            )}
+        {/* Timestamp Details */}
+        <div className="bg-card border border-border rounded-2xl p-5">
+          <div className="flex items-start gap-3">
+            <Clock className="text-primary mt-0.5 shrink-0" size={18} />
+            <div className="space-y-1">
+              <h3 className="font-semibold text-foreground">Timeline</h3>
+              <p className="text-sm text-muted-foreground">
+                Posted: {new Date(lead.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </p>
+              {lead.claimed_at && (
+                <p className="text-sm text-muted-foreground">
+                  Claimed: {new Date(lead.claimed_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
           </div>
-        )}
-
-        {/* Notes */}
-        {lead.notes && (
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <h3 className="font-semibold text-foreground mb-2">Notes</h3>
-            <p className="text-sm text-muted-foreground">{lead.notes}</p>
-          </div>
-        )}
+        </div>
 
         {/* Special Instructions */}
         {lead.special_instructions && (
-          <div className="bg-secondary/10 border border-secondary/30 rounded-2xl p-4">
+          <div className="bg-secondary/10 border border-secondary/30 rounded-2xl p-5">
             <h3 className="font-semibold text-foreground mb-2">Special Instructions</h3>
-            <p className="text-sm text-muted-foreground">{lead.special_instructions}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">{lead.special_instructions}</p>
           </div>
         )}
 
         {/* Proof Image */}
         {lead.proof_url && (
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <h3 className="font-semibold text-foreground mb-2">Proof of Completion</h3>
-            <img
-              src={lead.proof_url}
-              alt="Proof"
-              className="w-full rounded-xl"
-            />
+          <div className="bg-card border border-border rounded-2xl p-5">
+            <h3 className="font-semibold text-foreground mb-3">Proof of Completion</h3>
+            <a href={lead.proof_url} target="_blank" rel="noopener noreferrer">
+              <img
+                src={lead.proof_url}
+                alt="Proof"
+                className="w-full rounded-xl border border-border hover:opacity-90 transition-opacity cursor-pointer"
+              />
+            </a>
           </div>
         )}
 
@@ -470,16 +554,14 @@ const LeadDetails: React.FC = () => {
         {isClaimer && lead.status === 'claimed' && (
           <div className="space-y-3 pt-4">
             {/* Chat with Generator */}
-            {generatorPhone && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => openWhatsAppChat(generatorPhone, true)}
-              >
-                <MessageSquare size={18} />
-                Chat with Lead Generator
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigate(`/messages?lead=${lead.id}`)}
+            >
+              <MessageSquare size={18} />
+              Chat with Lead Generator
+            </Button>
 
             {/* Complete Lead */}
             <Button
@@ -509,17 +591,7 @@ const LeadDetails: React.FC = () => {
             <Button
               variant="outline"
               className="w-full"
-              onClick={async () => {
-                const { data } = await supabase
-                  .from('profiles')
-                  .select('phone')
-                  .eq('id', lead.claimed_by!)
-                  .maybeSingle();
-
-                if (data?.phone) {
-                  openWhatsAppChat(data.phone, false);
-                }
-              }}
+              onClick={() => navigate(`/messages?lead=${lead.id}`)}
             >
               <MessageSquare size={18} />
               Chat with Agent

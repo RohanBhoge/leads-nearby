@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { useEffect } from "react";
 import { checkExpiredLeads } from "@/lib/auto-rejection";
 import Index from "./pages/Index";
@@ -27,6 +28,8 @@ import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AdminDashboard from "./pages/AdminDashboard";
+import Messages from "./pages/Messages";
+import MessageNotificationBanner from "./components/MessageNotificationBanner";
 
 const queryClient = new QueryClient();
 
@@ -93,6 +96,7 @@ const AppContent = () => {
           <Route path="/subscribe" element={<Subscribe />} />
           <Route path="/community" element={<Community />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/messages" element={<Messages />} />
           <Route path="/lead/:id" element={<LeadDetails />} />
         </Route>
 
@@ -105,21 +109,24 @@ const AppContent = () => {
         {/* Catch-all */}
         <Route path="*" element={<NotFound />} />
       </Routes>
+      <MessageNotificationBanner />
     </BrowserRouter>
   );
 };
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <LanguageProvider>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AppContent />
-        </TooltipProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <AppContent />
+          </TooltipProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

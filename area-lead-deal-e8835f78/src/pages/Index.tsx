@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import LanguageToggle from '@/components/LanguageToggle';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 // ── Category Background Images ──
 import imgEvents from '@/assets/Events & Celebrations.png';
@@ -160,6 +161,7 @@ const Index: React.FC = () => {
             <a href="#services" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navServices')}</a>
             <a href="#how-it-works" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navHowItWorks')}</a>
             <a href="#contact" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-300">{t('navContact')}</a>
+            <ThemeToggle />
             <LanguageToggle />
             {user ? (
               <Button
@@ -198,6 +200,7 @@ const Index: React.FC = () => {
 
           {/* Mobile / Tablet Menu Button — visible below lg */}
           <div className="flex lg:hidden items-center gap-2">
+            <ThemeToggle />
             <LanguageToggle />
             <button
               className="p-2 rounded-full hover:bg-accent transition-colors duration-200"

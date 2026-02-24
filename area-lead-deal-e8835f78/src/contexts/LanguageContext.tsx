@@ -19,6 +19,7 @@ const translations: Translations = {
   home: { en: 'Home', mr: 'होम', hi: 'होम' },
   history: { en: 'History', mr: 'इतिहास', hi: 'इतिहास' },
   community: { en: 'Community', mr: 'समुदाय', hi: 'समुदाय' },
+  Messages: { en: 'Messages', mr: 'संदेश', hi: 'संदेश' },
   profile: { en: 'Profile', mr: 'प्रोफाइल', hi: 'प्रोफाइल' },
 
   // Auth

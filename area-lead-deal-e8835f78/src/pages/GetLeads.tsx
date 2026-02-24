@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCw, MapPin, AlertCircle, Star, Loader2, Filter } from 'lucide-react';
+import { RefreshCw, MapPin, AlertCircle, Star, Loader2, Filter, Phone, Clock, Tag, FileText, Image, IndianRupee, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -21,6 +21,7 @@ import {
 
 interface Lead {
   id: string;
+  title?: string;
   categories: { name: string } | null;
   sub_categories: { name: string } | null;
   location_lat: number;
@@ -29,6 +30,9 @@ interface Lead {
   address?: string | null;
   customer_name: string | null;
   customer_phone: string;
+  description?: string | null;
+  images?: string[] | null;
+  amount?: number | null;
   status: string;
   created_at: string;
   created_by: string;
@@ -179,7 +183,14 @@ const GetLeads: React.FC = () => {
     setFilteredLeads(filtered);
   }, [leads, filters]);
 
-  const activeFiltersCount = Object.keys(filters).filter(key => filters[key as keyof LeadFilters] !== undefined && filters[key as keyof LeadFilters] !== '').length;
+  const activeFiltersCount = [
+    filters.category,
+    filters.subCategory,
+    filters.minDistance,
+    filters.maxDistance,
+    filters.dateFrom,
+    filters.dateTo,
+  ].filter(v => v !== undefined && v !== '' && v !== null).length;
 
   // Poll every minute to ensure users get notified about available leads nearby
   useEffect(() => {
@@ -386,7 +397,12 @@ const GetLeads: React.FC = () => {
         <div className="mb-6">
           <LeadFilter
             onFiltersChange={(newFilters: Partial<LeadFilters>) => {
-              setFilters(prev => ({ ...prev, ...newFilters }));
+              // If empty object (from Clear All), reset to defaults
+              if (Object.keys(newFilters).length === 0) {
+                setFilters({ search: '', distance: 50 });
+              } else {
+                setFilters(prev => ({ ...prev, ...newFilters }));
+              }
             }}
             activeFiltersCount={activeFiltersCount}
           />
@@ -427,33 +443,35 @@ const GetLeads: React.FC = () => {
             </Button>
           </div>
         ) : (
-          <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
-            <p className="text-sm text-muted-foreground">
+          <div>
+            <p className="text-sm text-muted-foreground mb-4">
               {filteredLeads.length} {filteredLeads.length === 1 ? 'lead' : 'leads'} found
             </p>
+            <div className="space-y-4 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
 
-            {filteredLeads.map((lead, index) => (
-              <div
-                key={lead.id}
-                className="animate-slide-up"
-                style={{ animationDelay: `${index * 0.05}s` }}
-              >
-                <LeadCard
-                  lead={lead}
-                  distance={lead.distance}
-                  isSubscribed={profile?.is_subscribed || false}
-                  onViewDetails={() => handleViewDetails(lead)}
-                  onAccept={() => handleAcceptLead(lead)}
-                />
-              </div>
-            ))}
+              {filteredLeads.map((lead, index) => (
+                <div
+                  key={lead.id}
+                  className="animate-slide-up"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <LeadCard
+                    lead={lead}
+                    distance={lead.distance}
+                    isSubscribed={profile?.is_subscribed || false}
+                    onViewDetails={() => handleViewDetails(lead)}
+                    onAccept={() => handleAcceptLead(lead)}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </main>
 
       {/* Lead Details Modal */}
       <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
-        <DialogContent className="max-w-sm mx-4 rounded-2xl">
+        <DialogContent className="max-w-md mx-4 rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('viewDetails')}</DialogTitle>
             <DialogDescription>
@@ -462,54 +480,134 @@ const GetLeads: React.FC = () => {
           </DialogHeader>
 
           {selectedLead && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-start gap-3">
-                <MapPin className="text-primary mt-1" size={20} />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Location</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedLead.location_address || 'No address provided'}
-                  </p>
-                </div>
+            <div className="space-y-5 py-2">
+
+              {/* Category & Subcategory */}
+              <div className="flex flex-wrap items-center gap-2">
+                {selectedLead.categories?.name && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                    <Tag size={14} />
+                    {selectedLead.categories.name}
+                  </span>
+                )}
+                {selectedLead.sub_categories?.name && (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary/10 text-secondary text-sm font-medium">
+                    {selectedLead.sub_categories.name}
+                  </span>
+                )}
               </div>
 
+              {/* Creator Info */}
               {selectedLead.customer_name && (
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center mt-1">
-                    <span className="text-xs font-medium">
-                      {selectedLead.customer_name.charAt(0).toUpperCase()}
-                    </span>
+                <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <User size={18} className="text-primary" />
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">Customer</p>
-                    <p className="text-sm text-muted-foreground">{selectedLead.customer_name}</p>
+                    <p className="text-sm font-semibold text-foreground">{selectedLead.customer_name}</p>
+                    <p className="text-xs text-muted-foreground">Lead Creator</p>
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-3">
-                <a
-                  href={`tel:${selectedLead.customer_phone}`}
-                  className="flex-1"
-                >
-                  <Button variant="outline" className="w-full">
+              {/* Description / Notes */}
+              {selectedLead.description && (
+                <div className="flex items-start gap-3">
+                  <FileText className="text-primary mt-0.5 shrink-0" size={18} />
+                  <div>
+                    <p className="text-sm font-medium text-foreground mb-1">Description</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{selectedLead.description}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Images */}
+              {selectedLead.images && selectedLead.images.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Image className="text-primary" size={18} />
+                    <p className="text-sm font-medium text-foreground">Attached Images</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {selectedLead.images.map((img, i) => (
+                      <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={img}
+                          alt={`Lead image ${i + 1}`}
+                          className="w-full h-32 object-cover rounded-lg border border-border hover:opacity-80 transition-opacity cursor-pointer"
+                        />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Location */}
+              <div className="flex items-start gap-3">
+                <MapPin className="text-primary mt-0.5 shrink-0" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Location</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedLead.address || selectedLead.location_address || 'No address provided'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Amount */}
+              {selectedLead.amount && (
+                <div className="flex items-start gap-3">
+                  <IndianRupee className="text-primary mt-0.5 shrink-0" size={18} />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Budget / Amount</p>
+                    <p className="text-sm text-muted-foreground">₹{selectedLead.amount}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Created At */}
+              <div className="flex items-start gap-3">
+                <Clock className="text-primary mt-0.5 shrink-0" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Posted</p>
+                  <p className="text-sm text-muted-foreground">
+                    {new Date(selectedLead.created_at).toLocaleDateString('en-IN', {
+                      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contact Number */}
+              <div className="flex items-start gap-3">
+                <Phone className="text-primary mt-0.5 shrink-0" size={18} />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Contact</p>
+                  <p className="text-sm text-muted-foreground">{selectedLead.customer_phone}</p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-3 pt-2 border-t border-border">
+                <a href={`tel:${selectedLead.customer_phone}`} className="w-full">
+                  <Button variant="outline" className="w-full gap-2">
+                    <Phone size={16} />
                     {t('call')} {selectedLead.customer_phone}
                   </Button>
                 </a>
-              </div>
 
-              <Button
-                variant="hero"
-                className="w-full"
-                onClick={() => handleAcceptLead(selectedLead)}
-                disabled={acceptingLead}
-              >
-                {acceptingLead ? (
-                  <Loader2 className="animate-spin" size={20} />
-                ) : (
-                  t('acceptLead')
-                )}
-              </Button>
+                <Button
+                  variant="hero"
+                  className="w-full"
+                  onClick={() => handleAcceptLead(selectedLead)}
+                  disabled={acceptingLead}
+                >
+                  {acceptingLead ? (
+                    <Loader2 className="animate-spin" size={20} />
+                  ) : (
+                    t('acceptLead')
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </DialogContent>

@@ -3,12 +3,14 @@ import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import LanguageToggle from './LanguageToggle';
+import { ThemeToggle } from './ThemeToggle';
 
 interface HeaderProps {
   title?: string;
   showBack?: boolean;
   showLanguage?: boolean;
   rightElement?: React.ReactNode;
+  onBack?: () => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -16,6 +18,7 @@ const Header: React.FC<HeaderProps> = ({
   showBack = false,
   showLanguage = true,
   rightElement,
+  onBack,
 }) => {
   const navigate = useNavigate();
 
@@ -27,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => navigate(-1)}
+              onClick={() => onBack ? onBack() : navigate(-1)}
               className="shrink-0"
             >
               <ArrowLeft size={20} />
@@ -40,7 +43,8 @@ const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
           {showLanguage && <LanguageToggle />}
           {rightElement}
         </div>
