@@ -115,9 +115,9 @@ const BottomNav: React.FC = () => {
                     size={20}
                     className={cn("transition-transform duration-200", isActive && "scale-110")}
                   />
-                  {badge > 0 && (
+                  {(badge ?? 0) > 0 && (
                     <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-[3px] shadow-sm">
-                      {badge > 99 ? '99+' : badge}
+                      {(badge ?? 0) > 99 ? '99+' : badge}
                     </span>
                   )}
                 </div>
@@ -156,9 +156,9 @@ const BottomNav: React.FC = () => {
                     size={24}
                     className={cn("transition-transform duration-200", isActive && "scale-110")}
                   />
-                  {badge > 0 && (
+                  {(badge ?? 0) > 0 && (
                     <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-[3px] shadow-sm">
-                      {badge > 99 ? '99+' : badge}
+                      {(badge ?? 0) > 99 ? '99+' : badge}
                     </span>
                   )}
                 </div>
