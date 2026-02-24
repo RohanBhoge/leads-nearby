@@ -8,6 +8,7 @@ interface NotificationData {
     id: string;
     senderName: string;
     senderImage: string | null;
+    text: string;
     conversationId: string;
 }
 
@@ -40,6 +41,7 @@ const MessageNotificationBanner: React.FC = () => {
                         id: string;
                         conversation_id: string;
                         sender_id: string;
+                        content: string;
                     };
 
                     // Skip messages from self
@@ -65,10 +67,15 @@ const MessageNotificationBanner: React.FC = () => {
                         .eq('id', msg.sender_id)
                         .maybeSingle();
 
+                    const previewText = msg.content && msg.content.length > 60
+                        ? msg.content.slice(0, 60) + '…'
+                        : msg.content || 'New message';
+
                     const notif: NotificationData = {
                         id: msg.id,
                         senderName: (profile as any)?.user_name || 'Someone',
                         senderImage: (profile as any)?.profile_image || null,
+                        text: previewText,
                         conversationId: msg.conversation_id,
                     };
 
@@ -129,7 +136,9 @@ const MessageNotificationBanner: React.FC = () => {
                     <p className="text-sm font-semibold text-foreground truncate">
                         {notification.senderName}
                     </p>
-                    <p className="text-xs text-muted-foreground">🔒 New encrypted message</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                        {notification.text}
+                    </p>
                 </div>
 
                 {/* Dismiss button */}

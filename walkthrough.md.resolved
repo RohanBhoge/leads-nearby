@@ -1,0 +1,46 @@
+# In-App Chat System — Walkthrough
+
+## What Was Built
+
+A full **E2E encrypted** in-app chat system replacing the WhatsApp redirect model.
+
+## Files Created
+
+| File | Purpose |
+|------|---------|
+| [20260224_chat_system.sql](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/supabase/migrations/20260224_chat_system.sql) | 4 new tables, RLS policies, indexes, Realtime, auto-timestamp trigger |
+| [crypto.ts](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/lib/crypto.ts) | ECDH key exchange + AES-256-GCM encryption (zero dependencies) |
+| [chat.ts](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/lib/chat.ts) | Chat service: conversation CRUD, encrypted send/receive, Realtime |
+| [Messages.tsx](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/pages/Messages.tsx) | Chat page with conversation list + chat window |
+
+## Files Modified
+
+| File | Change |
+|------|--------|
+| [App.tsx](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/App.tsx) | Added `/messages` route |
+| [BottomNav.tsx](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/components/BottomNav.tsx) | Added Messages nav item with `MessageSquare` icon |
+| [Header.tsx](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/components/Header.tsx) | Added `onBack` callback prop |
+| [LeadDetails.tsx](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/pages/LeadDetails.tsx) | Chat buttons now navigate to `/messages?lead=` |
+| [types.ts](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/src/integrations/supabase/types.ts) | Added 4 new table types |
+
+## Encryption Architecture
+
+```
+User A → generate ECDH key pair → store private in IndexedDB, public in Supabase
+User B → same process
+Chat: derive shared AES key from (A.private + B.public) = (B.private + A.public)
+Each message: AES-256-GCM encrypt → store {ciphertext, IV} in DB
+```
+
+## Validation
+
+- **TypeScript build**: ✅ `npx tsc --noEmit` — exit code 0
+- **Zero new dependencies**: Uses only browser-native Web Crypto API + IndexedDB
+
+## Next Step: Run the SQL Migration
+
+You need to run the SQL migration in your **Supabase Dashboard**:
+
+1. Go to **SQL Editor** in your Supabase dashboard
+2. Paste the contents of [20260224_chat_system.sql](file:///c:/BisugenTech/Projects/03_Leads_Nearby/area-lead-deal-e8835f78/supabase/migrations/20260224_chat_system.sql)
+3. Click **Run**

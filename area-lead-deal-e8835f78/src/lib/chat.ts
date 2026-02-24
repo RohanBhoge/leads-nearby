@@ -1,16 +1,9 @@
 /**
  * Chat service layer — CRUD operations + Supabase Realtime
- * Handles conversation management, message sending/receiving with E2E encryption
+ * Messages stored as plaintext, secured by RLS policies + HTTPS
  */
 
 import { supabase } from '@/integrations/supabase/client';
-import {
-    getOrCreateKeyPair,
-    importPublicKey,
-    deriveSharedKey,
-    encryptMessage,
-    decryptMessage,
-} from './crypto';
 
 // ========== Types ==========
 
@@ -40,79 +33,8 @@ export interface Message {
     id: string;
     conversation_id: string;
     sender_id: string;
-    ciphertext: string;
-    iv: string;
+    content: string;
     created_at: string;
-}
-
-export interface DecryptedMessage {
-    id: string;
-    conversation_id: string;
-    sender_id: string;
-    text: string;
-    created_at: string;
-}
-
-// Cache derived shared keys so we don't re-derive every message
-const sharedKeyCache = new Map<string, CryptoKey>();
-
-// ========== Key Management ==========
-
-/**
- * Ensure the current user's public key is stored in Supabase.
- * Call this on app init or first chat usage.
- */
-export async function ensureUserKeysExist(userId: string): Promise<string> {
-    const { privateKey, publicKeyJwk } = await getOrCreateKeyPair();
-
-    // Check if key already exists in DB
-    const { data: existing } = await (supabase as any)
-        .from('user_keys')
-        .select('public_key')
-        .eq('user_id', userId)
-        .maybeSingle();
-
-    if (existing?.public_key) {
-        return existing.public_key;
-    }
-
-    // Upsert public key
-    await (supabase as any)
-        .from('user_keys')
-        .upsert({
-            user_id: userId,
-            public_key: publicKeyJwk,
-        }, { onConflict: 'user_id' });
-
-    return publicKeyJwk;
-}
-
-/**
- * Get or derive the shared AES key for a conversation with another user
- */
-async function getSharedKey(otherUserId: string): Promise<CryptoKey> {
-    if (sharedKeyCache.has(otherUserId)) {
-        return sharedKeyCache.get(otherUserId)!;
-    }
-
-    const { privateKey } = await getOrCreateKeyPair();
-
-    // Fetch other user's public key
-    const { data: keyRow } = await (supabase as any)
-        .from('user_keys')
-        .select('public_key')
-        .eq('user_id', otherUserId)
-        .maybeSingle();
-
-    if (!keyRow?.public_key) {
-        throw new Error('Other user has not set up encryption keys yet');
-    }
-
-    const otherPublicKey = await importPublicKey(keyRow.public_key);
-    const shared = await deriveSharedKey(privateKey, otherPublicKey);
-
-    sharedKeyCache.set(otherUserId, shared);
-    return shared;
 }
 
 // ========== Conversation Operations ==========
@@ -126,9 +48,6 @@ export async function getOrCreateConversation(
     otherUserId: string,
     leadId?: string
 ): Promise<string> {
-    // First, ensure both users have keys
-    await ensureUserKeysExist(currentUserId);
-
     // Look for existing conversation between these users for this lead
     if (leadId) {
         const { data: existing } = await (supabase as any)
@@ -140,7 +59,6 @@ export async function getOrCreateConversation(
             .eq('lead_id', leadId);
 
         if (existing && existing.length > 0) {
-            // Check if both users are in any of these conversations
             for (const conv of existing) {
                 const participantIds = conv.conversation_participants.map((p: any) => p.user_id);
                 if (participantIds.includes(currentUserId) && participantIds.includes(otherUserId)) {
@@ -167,7 +85,6 @@ export async function getOrCreateConversation(
                 .in('conversation_id', convIds);
 
             if (sharedConvs && sharedConvs.length > 0) {
-                // Find one without a lead_id (general chat)
                 const { data: conv } = await (supabase as any)
                     .from('conversations')
                     .select('id')
@@ -192,8 +109,6 @@ export async function getOrCreateConversation(
 
     if (convError) {
         console.error('Conversation insert error:', convError);
-        // If RLS blocks the select after insert, try fetching the latest
-        // conversation we just created
         const { data: fallback } = await (supabase as any)
             .from('conversations')
             .select('id')
@@ -206,7 +121,6 @@ export async function getOrCreateConversation(
             throw new Error('Failed to create conversation: ' + convError.message);
         }
 
-        // Add both participants
         const { error: partError } = await (supabase as any)
             .from('conversation_participants')
             .insert([
@@ -214,14 +128,10 @@ export async function getOrCreateConversation(
                 { conversation_id: fallback.id, user_id: otherUserId },
             ]);
 
-        if (partError) {
-            console.error('Participant insert error:', partError);
-        }
-
+        if (partError) console.error('Participant insert error:', partError);
         return fallback.id;
     }
 
-    // Add both participants
     const { error: partError } = await (supabase as any)
         .from('conversation_participants')
         .insert([
@@ -229,10 +139,7 @@ export async function getOrCreateConversation(
             { conversation_id: newConv.id, user_id: otherUserId },
         ]);
 
-    if (partError) {
-        console.error('Participant insert error:', partError);
-    }
-
+    if (partError) console.error('Participant insert error:', partError);
     return newConv.id;
 }
 
@@ -242,7 +149,6 @@ export async function getOrCreateConversation(
 export async function fetchConversations(
     currentUserId: string
 ): Promise<ConversationWithDetails[]> {
-    // Get all conversation IDs for this user
     const { data: participantRows } = await (supabase as any)
         .from('conversation_participants')
         .select('conversation_id, last_read_at')
@@ -255,7 +161,6 @@ export async function fetchConversations(
         participantRows.map((p: any) => [p.conversation_id, p.last_read_at])
     );
 
-    // Fetch conversations
     const { data: conversations } = await (supabase as any)
         .from('conversations')
         .select('*')
@@ -264,11 +169,9 @@ export async function fetchConversations(
 
     if (!conversations) return [];
 
-    // For each conversation, get the other participant and last message
     const results: ConversationWithDetails[] = [];
 
     for (const conv of conversations) {
-        // Get other participant
         const { data: participants } = await (supabase as any)
             .from('conversation_participants')
             .select('user_id')
@@ -279,7 +182,6 @@ export async function fetchConversations(
 
         const otherUserId = participants[0].user_id;
 
-        // Get other user's profile
         const { data: profile } = await supabase
             .from('profiles')
             .select('id, user_name, profile_image')
@@ -288,10 +190,10 @@ export async function fetchConversations(
 
         const displayName = (profile as any)?.user_name || 'User';
 
-        // Get last message
+        // Get last message — now plaintext
         const { data: lastMsgRows } = await (supabase as any)
             .from('messages')
-            .select('*')
+            .select('content, created_at, sender_id')
             .eq('conversation_id', conv.id)
             .order('created_at', { ascending: false })
             .limit(1);
@@ -299,21 +201,12 @@ export async function fetchConversations(
         let lastMessage: ConversationWithDetails['lastMessage'] | undefined;
         if (lastMsgRows && lastMsgRows.length > 0) {
             const msg = lastMsgRows[0];
-            try {
-                const sharedKey = await getSharedKey(otherUserId);
-                const text = await decryptMessage(sharedKey, msg.ciphertext, msg.iv);
-                lastMessage = {
-                    text: text.length > 50 ? text.substring(0, 50) + '...' : text,
-                    created_at: msg.created_at,
-                    sender_id: msg.sender_id,
-                };
-            } catch {
-                lastMessage = {
-                    text: '🔒 Encrypted message',
-                    created_at: msg.created_at,
-                    sender_id: msg.sender_id,
-                };
-            }
+            const text = msg.content || '';
+            lastMessage = {
+                text: text.length > 50 ? text.substring(0, 50) + '...' : text,
+                created_at: msg.created_at,
+                sender_id: msg.sender_id,
+            };
         }
 
         // Count unread messages
@@ -355,24 +248,20 @@ export async function fetchConversations(
 // ========== Message Operations ==========
 
 /**
- * Send an encrypted message
+ * Send a plaintext message
  */
 export async function sendMessage(
     conversationId: string,
     senderId: string,
-    otherUserId: string,
-    plaintext: string
+    _otherUserId: string,
+    text: string
 ): Promise<void> {
-    const sharedKey = await getSharedKey(otherUserId);
-    const { ciphertext, iv } = await encryptMessage(sharedKey, plaintext);
-
     const { error } = await (supabase as any)
         .from('messages')
         .insert({
             conversation_id: conversationId,
             sender_id: senderId,
-            ciphertext,
-            iv,
+            content: text,
         });
 
     if (error) {
@@ -381,48 +270,30 @@ export async function sendMessage(
 }
 
 /**
- * Fetch and decrypt messages for a conversation
+ * Fetch messages for a conversation
  */
 export async function fetchMessages(
     conversationId: string,
-    otherUserId: string,
+    _otherUserId: string,
     limit = 50,
     offset = 0
-): Promise<DecryptedMessage[]> {
+): Promise<Message[]> {
     const { data: rows } = await (supabase as any)
         .from('messages')
-        .select('*')
+        .select('id, conversation_id, sender_id, content, created_at')
         .eq('conversation_id', conversationId)
         .order('created_at', { ascending: true })
         .range(offset, offset + limit - 1);
 
     if (!rows || rows.length === 0) return [];
 
-    const sharedKey = await getSharedKey(otherUserId);
-
-    const decrypted: DecryptedMessage[] = [];
-    for (const row of rows) {
-        try {
-            const text = await decryptMessage(sharedKey, row.ciphertext, row.iv);
-            decrypted.push({
-                id: row.id,
-                conversation_id: row.conversation_id,
-                sender_id: row.sender_id,
-                text,
-                created_at: row.created_at,
-            });
-        } catch {
-            decrypted.push({
-                id: row.id,
-                conversation_id: row.conversation_id,
-                sender_id: row.sender_id,
-                text: '🔒 Unable to decrypt',
-                created_at: row.created_at,
-            });
-        }
-    }
-
-    return decrypted;
+    return rows.map((row: any) => ({
+        id: row.id,
+        conversation_id: row.conversation_id,
+        sender_id: row.sender_id,
+        content: row.content || '',
+        created_at: row.created_at,
+    }));
 }
 
 /**
@@ -430,8 +301,8 @@ export async function fetchMessages(
  */
 export function subscribeToMessages(
     conversationId: string,
-    otherUserId: string,
-    onMessage: (msg: DecryptedMessage) => void
+    _otherUserId: string,
+    onMessage: (msg: Message) => void
 ) {
     const channel = supabase
         .channel(`messages:${conversationId}`)
@@ -443,27 +314,15 @@ export function subscribeToMessages(
                 table: 'messages',
                 filter: `conversation_id=eq.${conversationId}`,
             },
-            async (payload) => {
-                const row = payload.new as Message;
-                try {
-                    const sharedKey = await getSharedKey(otherUserId);
-                    const text = await decryptMessage(sharedKey, row.ciphertext, row.iv);
-                    onMessage({
-                        id: row.id,
-                        conversation_id: row.conversation_id,
-                        sender_id: row.sender_id,
-                        text,
-                        created_at: row.created_at,
-                    });
-                } catch {
-                    onMessage({
-                        id: row.id,
-                        conversation_id: row.conversation_id,
-                        sender_id: row.sender_id,
-                        text: '🔒 Unable to decrypt',
-                        created_at: row.created_at,
-                    });
-                }
+            (payload) => {
+                const row = payload.new as any;
+                onMessage({
+                    id: row.id,
+                    conversation_id: row.conversation_id,
+                    sender_id: row.sender_id,
+                    content: row.content || '',
+                    created_at: row.created_at,
+                });
             }
         )
         .subscribe();

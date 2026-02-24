@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-    Send, Loader2, MessageCircle, ArrowLeft, Search, User,
-    Shield, Lock
+    Send, Loader2, MessageCircle, ArrowLeft, Search, User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,9 +21,8 @@ import {
     subscribeToMessages,
     markConversationAsRead,
     getOtherUserId,
-    ensureUserKeysExist,
     type ConversationWithDetails,
-    type DecryptedMessage,
+    type Message,
 } from '@/lib/chat';
 
 const Messages: React.FC = () => {
@@ -32,7 +30,7 @@ const Messages: React.FC = () => {
     const [activeConvId, setActiveConvId] = useState<string | null>(null);
     const [activeOtherUser, setActiveOtherUser] = useState<ConversationWithDetails['otherUser'] | null>(null);
     const [activeLeadCategory, setActiveLeadCategory] = useState<string | undefined>();
-    const [messages, setMessages] = useState<DecryptedMessage[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const [chatLoading, setChatLoading] = useState(false);
@@ -58,7 +56,6 @@ const Messages: React.FC = () => {
         const init = async () => {
             setLoading(true);
             try {
-                await ensureUserKeysExist(user.id);
                 await loadConversations();
 
                 // If ?lead=<id> in URL, open that chat
@@ -106,7 +103,7 @@ const Messages: React.FC = () => {
             toast({
                 variant: 'destructive',
                 title: 'Error',
-                description: 'Failed to open chat. The other user may not have set up their encryption keys yet.',
+                description: 'Failed to open chat. Please try again.',
             });
         }
     };
@@ -225,7 +222,7 @@ const Messages: React.FC = () => {
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="text-center space-y-3">
                     <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
-                    <p className="text-sm text-muted-foreground">Setting up secure chat...</p>
+                    <p className="text-sm text-muted-foreground">Loading chats...</p>
                 </div>
             </div>
         );
@@ -255,10 +252,6 @@ const Messages: React.FC = () => {
                     {/* Desktop Header */}
                     <div className="hidden md:flex items-center justify-between p-4 border-b border-border">
                         <h1 className="text-lg font-bold text-foreground">Messages</h1>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Shield size={12} />
-                            E2E Encrypted
-                        </div>
                     </div>
 
                     {/* Search */}
@@ -374,10 +367,6 @@ const Messages: React.FC = () => {
                                         </p>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground bg-muted/50 px-2 py-1 rounded-full">
-                                    <Lock size={10} />
-                                    Encrypted
-                                </div>
                             </div>
 
                             {/* Messages Area */}
@@ -389,11 +378,11 @@ const Messages: React.FC = () => {
                                 ) : messages.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center h-full text-center px-6">
                                         <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mb-3">
-                                            <Lock className="text-primary" size={24} />
+                                            <MessageCircle className="text-primary" size={24} />
                                         </div>
-                                        <h3 className="text-sm font-semibold text-foreground mb-1">End-to-end encrypted</h3>
+                                        <h3 className="text-sm font-semibold text-foreground mb-1">Start chatting</h3>
                                         <p className="text-xs text-muted-foreground">
-                                            Messages are encrypted. Only you and {activeOtherUser.name} can read them.
+                                            Send a message to {activeOtherUser.name} to get started.
                                         </p>
                                     </div>
                                 ) : (
@@ -424,7 +413,7 @@ const Messages: React.FC = () => {
                                                             : 'bg-card border border-border text-foreground rounded-bl-md'
                                                         }
                           `}>
-                                                        <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                                        <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                                                         <p className={`text-[10px] mt-1 ${isOwn ? 'text-primary-foreground/60' : 'text-muted-foreground'
                                                             }`}>
                                                             {new Date(msg.created_at).toLocaleTimeString('en-IN', {
@@ -481,10 +470,7 @@ const Messages: React.FC = () => {
                             <p className="text-sm text-muted-foreground max-w-sm">
                                 Select a conversation to start chatting, or open a lead to begin a new conversation.
                             </p>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-4 bg-muted/50 px-3 py-1.5 rounded-full">
-                                <Shield size={12} />
-                                All messages are end-to-end encrypted
-                            </div>
+
                         </div>
                     )}
                 </div>
