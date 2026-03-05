@@ -8,8 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import LeadCard from '@/components/LeadCard';
+import { LeadsRepository } from '@/lib/api/leads.api';
 import LeadFilter from '@/components/LeadFilter';
 import { useToast } from '@/hooks/use-toast';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { createNotification, requestBrowserNotificationPermission, showBrowserNotification } from '@/lib/notifications';
 import {
   Dialog,
@@ -94,36 +96,24 @@ const GetLeads: React.FC = () => {
       const userLong = profile?.location_long || 0;
       const serviceRadius = profile?.service_radius_km || 50;
 
-      // Fetch open leads
-      const { data, error } = await supabase
-        .from('leads')
-        .select('*, categories(name), sub_categories(name)')
-        .eq('status', 'open')
-        .neq('created_by', user.id) // Don't show own leads
-        .order('created_at', { ascending: false });
+      if (!userLat || !userLong) {
+        setLeads([]);
+        return;
+      }
+
+      // Call the Database RPC via Repository Pattern
+      const { data, error } = await LeadsRepository.getNearbyLeads(
+        userLat,
+        userLong,
+        serviceRadius
+      );
 
       if (error) throw error;
 
-      let leadsWithDistance: Lead[] = (data || []).map((lead: any) => ({
-        ...lead,
-        status: lead.status || 'open',
-      })) as Lead[];
+      // Filter out our own leads
+      const othersLeads = (data || []).filter(lead => lead.created_by !== user.id);
 
-      if (userLat && userLong) {
-        leadsWithDistance = leadsWithDistance.map((lead) => ({
-          ...lead,
-          distance: lead.location_lat && lead.location_long
-            ? calculateDistance(userLat, userLong, lead.location_lat, lead.location_long)
-            : undefined
-        }));
-
-        // Filter by radius and sort by distance
-        leadsWithDistance = leadsWithDistance
-          .filter((lead) => (lead.distance || 0) <= serviceRadius)
-          .sort((a, b) => (a.distance || 0) - (b.distance || 0));
-      }
-
-      setLeads(leadsWithDistance);
+      setLeads(othersLeads as unknown as Lead[]);
     } catch (error) {
       console.error('Error fetching leads:', error);
       toast({
@@ -144,6 +134,52 @@ const GetLeads: React.FC = () => {
       setLoading(false);
     };
     loadLeads();
+
+    // ----------------------------------------------------------------------
+    // SYSTEM DESIGN: Supabase Realtime (WebSockets)
+    // ----------------------------------------------------------------------
+    // Listen for changes in the leads table so if someone else claims a lead,
+    // it automatically updates on this user's screen without refreshing.
+    const channel = supabase
+      .channel('leads_realtime_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'leads'
+        },
+        (payload) => {
+          // If a lead status changes, update our local React state
+          const updatedLead = payload.new;
+
+          setLeads(currentLeads => {
+            // Check if we already have this lead in our local list
+            const leadExists = currentLeads.some(l => l.id === updatedLead.id);
+
+            if (leadExists) {
+              // Update the local list
+              if (updatedLead.status !== 'open' && updatedLead.status !== 'active') {
+                // A lead was claimed or rejected, remove it from the "nearby open leads" list
+                return currentLeads.filter(l => l.id !== updatedLead.id);
+              } else {
+                // Update the specific lead's data
+                return currentLeads.map(l =>
+                  l.id === updatedLead.id
+                    ? { ...l, ...updatedLead } as Lead
+                    : l
+                );
+              }
+            }
+            return currentLeads;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchLeads]);
 
   // Apply filters to leads
@@ -287,11 +323,8 @@ const GetLeads: React.FC = () => {
           const radius = profile.service_radius_km || 50;
           if (distanceKm <= radius) {
             // Fetch category name since it's not in the payload
-            const { data: categoryData } = await supabase
-              .from('categories')
-              .select('name')
-              .eq('id', newLead.category_id)
-              .single();
+            const { categories } = await fetchCategoriesAndSubCategories();
+            const categoryData = categories.find(c => c.id === newLead.category_id);
 
             const serviceName = categoryData?.name || 'Service';
 
@@ -461,6 +494,18 @@ const GetLeads: React.FC = () => {
                     isSubscribed={profile?.is_subscribed || false}
                     onViewDetails={() => handleViewDetails(lead)}
                     onAccept={() => handleAcceptLead(lead)}
+                    onShare={async () => {
+                      const shareUrl = `${window.location.origin}/share/lead/${lead.id}`;
+                      const shareText = `Check out this lead: ${lead.categories?.name || 'Lead'} on Leads Nearby`;
+                      if (navigator.share) {
+                        try {
+                          await navigator.share({ title: 'Leads Nearby', text: shareText, url: shareUrl });
+                        } catch { /* cancelled */ }
+                      } else {
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('Link copied!');
+                      }
+                    }}
                   />
                 </div>
               ))}

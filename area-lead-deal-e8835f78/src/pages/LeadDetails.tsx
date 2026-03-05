@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   MapPin, Phone, Clock, User, FileText, CheckCircle, XCircle,
   Camera, Loader2, MessageSquare, Upload, MessageCircle, AlertTriangle, Star, Eye, Hash,
-  Tag, IndianRupee, Image as ImageIcon
+  Tag, IndianRupee, Image as ImageIcon, Share2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -300,7 +300,11 @@ const LeadDetails: React.FC = () => {
     }
   };
 
-  const openWhatsAppChat = (targetPhone: string, isAgentConnection: boolean) => {
+  const getShareUrl = () => {
+    return `${window.location.origin}/share/lead/${id}`;
+  };
+
+  const openWhatsAppChat = (targetPhone: string, isAgentConnection: boolean = false) => {
     if (!targetPhone) {
       toast({
         title: t('error'),
@@ -358,13 +362,35 @@ const LeadDetails: React.FC = () => {
           </div>
         )}
 
-        {/* Lead Code Badge */}
-        {lead.lead_code && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-mono">
-            <Hash size={14} className="text-muted-foreground" />
-            {lead.lead_code}
-          </div>
-        )}
+        {/* Lead Code + Share */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {lead.lead_code && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted text-sm font-mono">
+              <Hash size={14} className="text-muted-foreground" />
+              {lead.lead_code}
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 rounded-lg"
+            onClick={async () => {
+              const shareUrl = getShareUrl();
+              const shareText = `Check out this lead: ${lead.categories?.name || 'Lead'} on Leads Nearby`;
+              if (navigator.share) {
+                try {
+                  await navigator.share({ title: 'Leads Nearby', text: shareText, url: shareUrl });
+                } catch { /* cancelled */ }
+              } else {
+                await navigator.clipboard.writeText(shareUrl);
+                toast({ title: 'Link copied!', description: 'Share this link with anyone.' });
+              }
+            }}
+          >
+            <Share2 size={14} />
+            Share Lead
+          </Button>
+        </div>
 
         {/* Status Badge */}
         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${lead.status === 'completed' ? 'bg-primary/20 text-primary' :

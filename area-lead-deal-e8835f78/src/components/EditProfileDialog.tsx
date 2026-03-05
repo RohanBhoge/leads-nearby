@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { Loader2, Camera, User, Phone, FileText } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -50,11 +51,13 @@ const EditProfileDialog: React.FC<EditProfileDialogProps> = ({ isOpen, onClose }
 
     useEffect(() => {
         const fetchCategories = async () => {
-            const { data: cats } = await supabase.from('categories').select('id, name').order('name');
-            if (cats) setCategories(cats);
-
-            const { data: subCats } = await supabase.from('sub_categories').select('id, name, category_id').order('name');
-            if (subCats) setSubCategories(subCats as any);
+            try {
+                const { categories: cats, subCategories: subCats } = await fetchCategoriesAndSubCategories();
+                setCategories(cats);
+                setSubCategories(subCats as any);
+            } catch (err) {
+                console.error("Failed to load categories for profile edit", err);
+            }
         };
         if (isOpen) {
             fetchCategories();

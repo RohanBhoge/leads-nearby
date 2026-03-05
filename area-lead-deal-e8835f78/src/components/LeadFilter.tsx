@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface LeadFilters {
@@ -45,30 +46,18 @@ const LeadFilter: React.FC<LeadFilterProps> = ({ onFiltersChange, activeFiltersC
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [filteredSubCategories, setFilteredSubCategories] = useState<SubCategory[]>([]);
 
-  // Fetch categories and subcategories from Supabase
+  // Fetch categories and subcategories from API
   useEffect(() => {
     const fetchCategories = async () => {
-      const { data, error } = await supabase
-        .from('categories')
-        .select('id, name')
-        .order('name');
-      if (!error && data) {
-        setCategories(data);
+      try {
+        const { categories: cats, subCategories: subCats } = await fetchCategoriesAndSubCategories();
+        setCategories(cats);
+        setSubCategories(subCats as SubCategory[]);
+      } catch (err) {
+        console.error("Failed to fetch categories", err);
       }
     };
-
-    const fetchSubCategories = async () => {
-      const { data, error } = await supabase
-        .from('sub_categories')
-        .select('id, name, category_id')
-        .order('name');
-      if (!error && data) {
-        setSubCategories(data as SubCategory[]);
-      }
-    };
-
     fetchCategories();
-    fetchSubCategories();
   }, []);
 
   // Filter subcategories when category changes

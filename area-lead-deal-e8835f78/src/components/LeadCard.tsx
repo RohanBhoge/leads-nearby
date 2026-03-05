@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, Phone, Clock, Lock, ChevronRight } from 'lucide-react';
+import { MapPin, Phone, Clock, Lock, ChevronRight, Share2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ interface LeadCardProps {
   isSubscribed: boolean;
   onViewDetails: () => void;
   onAccept: () => void;
+  onShare?: () => void;
 }
 
 import { getServiceLabel } from '@/constants/serviceTypes';
@@ -30,6 +31,7 @@ const LeadCard: React.FC<LeadCardProps> = ({
   isSubscribed,
   onViewDetails,
   onAccept,
+  onShare,
 }) => {
   const { t, tc } = useLanguage();
 
@@ -64,6 +66,17 @@ const LeadCard: React.FC<LeadCardProps> = ({
             <MapPin size={16} />
             <span>{distance.toFixed(1)} {t('kmAway')}</span>
           </div>
+        )}
+
+        {/* Share button */}
+        {onShare && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onShare(); }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+            title="Share lead"
+          >
+            <Share2 size={16} />
+          </button>
         )}
       </div>
 

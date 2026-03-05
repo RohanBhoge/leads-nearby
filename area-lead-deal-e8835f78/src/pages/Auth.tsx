@@ -4,6 +4,7 @@ import { Mail, Lock, User, ArrowRight, Loader2, Phone, Layers, Grid, Eye, EyeOff
 import LocationPicker from '@/components/LocationPicker';
 import RadiusSlider from '@/components/RadiusSlider';
 import { Button } from '@/components/ui/button';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,16 +62,13 @@ const Auth: React.FC = () => {
       console.log("Fetching categories...");
       console.log("Supabase URL:", import.meta.env.VITE_SUPABASE_URL);
 
-      const { data: catData, error: catError } = await supabase.from('categories').select('id, name');
-      if (catError) console.error("Category Fetch Error:", catError);
-      else console.log("Categories fetched:", catData);
-
-      const { data: subCatData, error: subCatError } = await supabase.from('sub_categories').select('id, name, category_id');
-      if (subCatError) console.error("SubCategory Fetch Error:", subCatError);
-      else console.log("SubCategories fetched:", subCatData);
-
-      if (catData) setCategories(catData);
-      if (subCatData) setSubCategories(subCatData as any);
+      try {
+        const { categories, subCategories } = await fetchCategoriesAndSubCategories();
+        setCategories(categories);
+        setSubCategories(subCategories as any);
+      } catch (err) {
+        console.error("Failed to fetch custom categories:", err);
+      }
     }
     fetchCategories();
   }, []);

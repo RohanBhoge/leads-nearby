@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { Loader2 } from 'lucide-react';
 import LocationPicker from '@/components/LocationPicker'; // Adjust path if needed
 
@@ -51,11 +52,13 @@ const AdminEditUserDialog: React.FC<AdminEditUserDialogProps> = ({ user, isOpen,
 
     useEffect(() => {
         const fetchCategories = async () => {
-            const { data: cats } = await supabase.from('categories').select('id, name');
-            if (cats) setCategories(cats);
-
-            const { data: subCats } = await supabase.from('sub_categories').select('id, name, category_id');
-            if (subCats) setSubCategories(subCats as any);
+            try {
+                const { categories: cats, subCategories: subCats } = await fetchCategoriesAndSubCategories();
+                setCategories(cats);
+                setSubCategories(subCats as any);
+            } catch (err) {
+                console.error("Failed to load categories for admin edit", err);
+            }
         };
         fetchCategories();
     }, []);

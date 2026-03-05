@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, LogOut, Star, MapPin, Phone, Mail, Briefcase, Loader2 } from 'lucide-react';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -35,24 +36,22 @@ const Profile: React.FC = () => {
   // Fetch category and subcategory names
   useEffect(() => {
     const fetchCategoryNames = async () => {
-      if (profile?.category_id) {
-        const { data } = await supabase
-          .from('categories')
-          .select('name')
-          .eq('id', profile.category_id)
-          .single();
+      try {
+        if (profile?.category_id || profile?.sub_category_id) {
+          const { categories, subCategories } = await fetchCategoriesAndSubCategories();
 
-        if (data) setCategoryName(data.name);
-      }
+          if (profile?.category_id) {
+            const cat = categories.find((c: any) => c.id === profile.category_id);
+            if (cat) setCategoryName(cat.name);
+          }
 
-      if (profile?.sub_category_id) {
-        const { data } = await supabase
-          .from('sub_categories')
-          .select('name')
-          .eq('id', profile.sub_category_id)
-          .single();
-
-        if (data) setSubCategoryName(data.name);
+          if (profile?.sub_category_id) {
+            const subCat = subCategories.find((sc: any) => sc.id === profile.sub_category_id);
+            if (subCat) setSubCategoryName(subCat.name);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load category names", err);
       }
     };
 

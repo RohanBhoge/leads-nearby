@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Phone, User, FileText, Loader2, CheckCircle, Camera } from 'lucide-react';
+import { Phone, User, FileText, Loader2, CheckCircle, Camera, ImagePlus, Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import Header from '@/components/Header';
 import BottomNav from '@/components/BottomNav';
 import LocationPicker from '@/components/LocationPicker';
+import { fetchCategoriesAndSubCategories } from '@/lib/api/categories.api';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import {
@@ -60,6 +61,13 @@ const GenerateLead: React.FC = () => {
   const [verificationResult, setVerificationResult] = useState<{ score: number; reason: string } | null>(null);
   const [bypassVerification, setBypassVerification] = useState(false);
 
+  // AI Screenshot Extraction State
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractionDone, setExtractionDone] = useState(false);
+  const screenshotInputRef = useRef<HTMLInputElement>(null);
+
   const { user } = useAuth();
   const { t, tc } = useLanguage();
   const navigate = useNavigate();
@@ -67,24 +75,16 @@ const GenerateLead: React.FC = () => {
 
   // Fetch categories on mount
   useEffect(() => {
-    const fetchCategories = async () => {
-      const { data } = await supabase
-        .from('categories')
-        .select('id, name')
-        .order('name');
-      if (data) setCategories(data);
+    const loadCategories = async () => {
+      try {
+        const { categories, subCategories } = await fetchCategoriesAndSubCategories();
+        setCategories(categories);
+        setSubCategories(subCategories as any);
+      } catch (err) {
+        console.error("Failed to load categories", err);
+      }
     };
-
-    const fetchSubCategories = async () => {
-      const { data } = await supabase
-        .from('sub_categories')
-        .select('id, name, category_id')
-        .order('name');
-      if (data) setSubCategories(data as any);
-    };
-
-    fetchCategories();
-    fetchSubCategories();
+    loadCategories();
   }, []);
 
   // Filter subcategories by selected category
@@ -108,6 +108,144 @@ const GenerateLead: React.FC = () => {
         setPhoneError(e.errors[0].message);
       }
       return false;
+    }
+  };
+
+  // Convert image file to base64 string
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Strip the data:image/xxx;base64, prefix
+        resolve(result.split(',')[1]);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Handle screenshot upload and AI extraction
+  const handleScreenshotExtract = async (file: File) => {
+    setScreenshotFile(file);
+    setExtractionDone(false);
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setScreenshotPreview(previewUrl);
+
+    setIsExtracting(true);
+    try {
+      const base64 = await fileToBase64(file);
+      const mimeType = file.type || 'image/jpeg';
+
+      const availableCategories = categories.map(c => c.name);
+
+      const { data, error } = await supabase.functions.invoke('verify-lead-content', {
+        body: {
+          mode: 'extract',
+          image_base64: base64,
+          image_mime_type: mimeType,
+          available_categories: availableCategories
+        },
+        headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` }
+      });
+
+      if (error) throw error;
+
+      // Debug: log the actual AI response
+      console.log('AI extraction response:', JSON.stringify(data));
+
+      if (data?.extract_error || data?.error) {
+        throw new Error(`AI Service Error: ${data.error || 'Unknown error'}`);
+      }
+
+      // If we got the old validation format (is_matches field) and no extraction data at all
+      if (data?.is_matches !== undefined && data?.customer_name === undefined && !data?.error) {
+        throw new Error('Edge Function is outdated. Please redeploy verify-lead-content.');
+      }
+
+      // Auto-fill form fields from AI response
+      let filledCount = 0;
+      if (data?.customer_name) { setCustomerName(data.customer_name); filledCount++; }
+      if (data?.customer_phone) {
+        const phone = data.customer_phone.replace(/\D/g, '').slice(-10);
+        if (phone.length >= 10) { setCustomerPhone(phone); validatePhone(phone); filledCount++; }
+      }
+      if (data?.service_description) { setNotes(data.service_description); filledCount++; }
+      if (data?.estimated_price) { setPrice(data.estimated_price); filledCount++; }
+
+      // Try to match suggested category
+      if (data?.suggested_category) {
+        const matched = categories.find(c =>
+          c.name.toLowerCase().includes(data.suggested_category.toLowerCase()) ||
+          data.suggested_category.toLowerCase().includes(c.name.toLowerCase())
+        );
+        if (matched) {
+          setSelectedCategoryId(matched.id);
+          filledCount++;
+          if (data?.suggested_sub_category) {
+            setTimeout(() => {
+              const matchedSub = subCategories.find(sc =>
+                sc.category_id === matched.id &&
+                (sc.name.toLowerCase().includes(data.suggested_sub_category.toLowerCase()) ||
+                  data.suggested_sub_category.toLowerCase().includes(sc.name.toLowerCase()))
+              );
+              if (matchedSub) setSelectedSubCategoryId(matchedSub.id);
+            }, 100);
+          }
+        }
+      }
+
+      // Try to geocode the location string into coordinates
+      if (data?.location && window.google?.maps?.Geocoder) {
+        try {
+          const geocoder = new window.google.maps.Geocoder();
+          geocoder.geocode({ address: data.location, componentRestrictions: { country: 'in' } } as any, (results: any, status: any) => {
+            if (status === 'OK' && results && results[0]) {
+              const locationObj = results[0].geometry.location;
+              const formattedAddress = results[0].formatted_address;
+              handleLocationChange(locationObj.lat(), locationObj.lng(), formattedAddress);
+              toast({
+                title: '📍 Location Found',
+                description: formattedAddress,
+              });
+            } else {
+              setAddress(data.location); // Fallback to raw string if geocoding fails
+            }
+          });
+          filledCount++;
+        } catch (e) {
+          console.error("Geocoding failed for AI location", e);
+          setAddress(data.location);
+        }
+      } else if (data?.location) {
+        setAddress(data.location); // Fallback if maps not loaded
+        filledCount++;
+      }
+
+      const filledCount_final = filledCount;
+      setExtractionDone(true);
+      if (filledCount_final === 0) {
+        toast({
+          title: '⚠️ No data found in image',
+          description: 'AI could not extract details. Try a clearer screenshot or fill manually.',
+        });
+      } else {
+        toast({
+          title: `✅ AI filled ${filledCount_final} field${filledCount_final !== 1 ? 's' : ''}`,
+          description: 'Review and edit anything that looks incorrect before submitting.',
+        });
+      }
+    } catch (err) {
+      console.error('Screenshot extraction failed:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Extraction Failed',
+        description: err instanceof Error ? err.message : 'Could not read the screenshot. Please fill the form manually.',
+      });
+    } finally {
+      setIsExtracting(false);
     }
   };
 
@@ -230,6 +368,70 @@ const GenerateLead: React.FC = () => {
       <Header title={t('generateLead')} showBack />
 
       <main className="px-4 py-6 max-w-2xl mx-auto">
+        {/* ── AI Screenshot Upload Card ── */}
+        <div className="mb-6">
+          <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-primary/5 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={18} className="text-primary" />
+              <span className="font-semibold text-foreground">Generate Lead from Screenshot</span>
+              <span className="text-xs bg-primary/20 text-primary px-2 py-0.5 rounded-full ml-auto">AI</span>
+            </div>
+
+            {!screenshotFile ? (
+              <label
+                className="flex flex-col items-center justify-center gap-2 h-28 rounded-xl border-2 border-dashed border-primary/30 cursor-pointer hover:border-primary hover:bg-primary/10 transition-all"
+                htmlFor="screenshot-upload"
+              >
+                <ImagePlus size={28} className="text-primary/60" />
+                <span className="text-sm text-muted-foreground text-center">
+                  Upload WhatsApp screenshot, SMS or any service request image<br />
+                  <span className="text-xs text-primary">AI will auto-fill the form</span>
+                </span>
+                <input
+                  ref={screenshotInputRef}
+                  id="screenshot-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleScreenshotExtract(file);
+                  }}
+                />
+              </label>
+            ) : (
+              <div className="relative">
+                <img
+                  src={screenshotPreview!}
+                  alt="Screenshot preview"
+                  className="w-full max-h-48 object-contain rounded-xl border border-border"
+                />
+                {/* Remove button */}
+                <button
+                  type="button"
+                  onClick={() => { setScreenshotFile(null); setScreenshotPreview(null); setExtractionDone(false); }}
+                  className="absolute top-2 right-2 bg-background/80 rounded-full p-1 border border-border hover:bg-destructive/10"
+                >
+                  <X size={14} className="text-destructive" />
+                </button>
+                {/* Status */}
+                {isExtracting && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/70 rounded-xl gap-2">
+                    <Loader2 size={28} className="animate-spin text-primary" />
+                    <span className="text-sm font-medium text-primary">AI is reading screenshot...</span>
+                  </div>
+                )}
+                {extractionDone && !isExtracting && (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-primary font-medium">
+                    <CheckCircle size={16} />
+                    Form auto-filled! Review and edit below.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Category Selection */}
           <div className="space-y-2 animate-slide-up">
@@ -355,16 +557,13 @@ const GenerateLead: React.FC = () => {
             />
           </div>
 
-          {/* Photo Upload Placeholder */}
-          <div className="animate-slide-up" style={{ animationDelay: '0.6s' }}>
-            <button
-              type="button"
-              className="w-full h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              <Camera size={24} />
-              <span className="text-sm">{t('uploadPhoto')} (Optional)</span>
-            </button>
-          </div>
+          {/* Info about AI Screenshot (when already used) */}
+          {extractionDone && (
+            <div className="text-xs text-muted-foreground bg-primary/5 rounded-xl p-3 flex items-center gap-2">
+              <Sparkles size={14} className="text-primary" />
+              Fields were auto-filled from your screenshot. Edit anything that looks incorrect.
+            </div>
+          )}
 
           {/* Submit */}
           <div className="pt-4 animate-slide-up" style={{ animationDelay: '0.7s' }}>

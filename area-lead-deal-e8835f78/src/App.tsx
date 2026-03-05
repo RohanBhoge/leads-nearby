@@ -29,6 +29,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import AdminDashboard from "./pages/AdminDashboard";
 import Messages from "./pages/Messages";
+import SharedLeadView from "./pages/SharedLeadView";
 import MessageNotificationBanner from "./components/MessageNotificationBanner";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,7 @@ const AppContent = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/share/lead/:id" element={<SharedLeadView />} />
 
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>

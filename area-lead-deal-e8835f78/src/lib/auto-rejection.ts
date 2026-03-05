@@ -42,42 +42,39 @@ export const checkExpiredLeads = async (): Promise<number> => {
           status: 'open',
           claimed_by: null,
           claimed_at: null,
-          rejected_at: new Date().toISOString(), // Ensure this column exists or ignore if not critical
         })
         .eq('id', lead.id);
 
       if (!updateError) {
         rejectedCount++;
 
-        const serviceName = lead.categories?.name || 'Service';
+        const serviceName = (lead.categories as any)?.name || 'Service';
 
-        // Send notification to lead generator
-        if (lead.created_by) {
-          await supabase.from('notifications').insert({
-            user_id: lead.created_by,
-            type: 'lead_auto_rejected',
-            title: 'Lead Auto-Released',
-            body: `Your lead was automatically released after 3 days without completion.`,
-            data: {
-              leadId: lead.id,
-              serviceType: serviceName,
-            },
-          });
-        }
+        // Send notification to lead generator (non-critical)
+        try {
+          if (lead.created_by) {
+            await supabase.from('notifications').insert({
+              user_id: lead.created_by,
+              type: 'lead_auto_rejected',
+              title: 'Lead Auto-Released',
+              body: `Your lead for "${serviceName}" was automatically released after 3 days without completion. It is now available for others to claim.`,
+              data: { leadId: lead.id, serviceType: serviceName },
+            });
+          }
+        } catch (e) { /* Notification failure is non-critical */ }
 
-        // Send notification to agent
-        if (lead.claimed_by) {
-          await supabase.from('notifications').insert({
-            user_id: lead.claimed_by,
-            type: 'lead_auto_rejected',
-            title: 'Lead Expired',
-            body: `A claimed lead was automatically released after 3 days without completion.`,
-            data: {
-              leadId: lead.id,
-              serviceType: serviceName,
-            },
-          });
-        }
+        // Send notification to agent (non-critical)
+        try {
+          if (lead.claimed_by) {
+            await supabase.from('notifications').insert({
+              user_id: lead.claimed_by,
+              type: 'lead_auto_rejected',
+              title: 'Lead Expired',
+              body: `Your claimed lead for "${serviceName}" was automatically released after 3 days without completion.`,
+              data: { leadId: lead.id, serviceType: serviceName },
+            });
+          }
+        } catch (e) { /* Notification failure is non-critical */ }
       }
     }
 
